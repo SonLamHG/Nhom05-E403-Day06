@@ -1,0 +1,55 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+env/
+venv/
+.venv/
+venv*/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Environment / secrets
+.env
+*.key
+
+# Python testing / cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Logs
+*.log
+uvicorn*.log
+gunicorn.pid
+
+# Local data / databases (adjust if you want to keep JSON fixtures)
+backend/data/*.db
+backend/data/*.sqlite
+
+# Node
+node_modules/
+
+# Misc
+*.bak
+*.swp
+
+# NOTE: keep JSON fixtures (e.g., backend/data/indicators.json) committed unless you intentionally want to ignore them.
