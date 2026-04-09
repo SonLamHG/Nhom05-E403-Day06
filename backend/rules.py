@@ -42,6 +42,57 @@ def validate_indicators(data: dict[str, float]) -> None:
         raise ValueError("Dữ liệu đầu vào không hợp lệ: " + "; ".join(errors))
 
 
+def calculate_confidence(value: float, info: dict) -> float:
+    """Return a confidence score in [0,1] for a given indicator value.
+
+    Heuristics:
+    - If value is well inside the normal range -> high confidence (0.95)
+    - If value is near a boundary (within 10% of normal span) -> lower confidence (~0.60)
+    - If value clearly outside normal or clearly in danger -> medium-high confidence (~0.85)
+    - If no reference info available -> 0.5
+    """
+    try:
+        normal_min = info["normal_min"]
+        normal_max = info["normal_max"]
+    except Exception:
+        return 0.5
+
+    span = max(1e-6, normal_max - normal_min)
+    # distance to nearest normal boundary
+    if value < normal_min:
+        dist = normal_min - value
+    elif value > normal_max:
+        dist = value - normal_max
+    else:
+        # inside normal range
+        # closeness to center increases confidence
+        center = (normal_min + normal_max) / 2.0
+        rel = abs(value - center) / (span / 2.0)  # 0 at center, 1 at edges
+        if rel <= 0.5:
+            return 0.95
+        if rel <= 1.0:
+            return 0.80
+        return 0.70
+
+    # outside normal range: compare to warning bounds if present
+    warning_min = info.get("warning_min", normal_min)
+    warning_max = info.get("warning_max", normal_max)
+
+    # If within warning zone (near boundary)
+    if warning_min <= value <= warning_max:
+        # distance relative to warning span
+        warn_span = max(1e-6, warning_max - warning_min)
+        rel_warn = dist / warn_span
+        if rel_warn <= 0.1:
+            return 0.60
+        if rel_warn <= 0.5:
+            return 0.75
+        return 0.85
+
+    # Far outside warning bounds -> high confidence it's abnormal
+    return 0.90
+
+
 def evaluate_indicator(name: str, value: float) -> dict:
     """Evaluate a single indicator against rules. Returns status + message."""
     info = INDICATORS.get(name)
@@ -110,6 +161,8 @@ def evaluate_indicator(name: str, value: float) -> dict:
             risk = info.get("risk_high", info.get("risk", ""))
             message = f"{info['description']} ở mức cao. {risk}"
 
+    conf = calculate_confidence(value, info)
+
     return {
         "name": info["name"],
         "value": value,
@@ -117,7 +170,8 @@ def evaluate_indicator(name: str, value: float) -> dict:
         "status": status,
         "color": color,
         "message": message,
-        "reference": f"{info['normal_min']}–{info['normal_max']} {info['unit']}"
+        "reference": f"{info['normal_min']}–{info['normal_max']} {info['unit']}",
+        "confidence": round(float(conf), 2)
     }
 
 
@@ -313,10 +367,17 @@ def analyze(data: dict, age: int | None = None, smoking: bool = False) -> dict:
     else:
         triage = "ok"
 
+    # compute overall confidence: take the minimum indicator confidence as conservative measure
+    confidences = [r.get("confidence", 0.5) for r in results]
+    overall_confidence = round(float(min(confidences)) if confidences else 0.5, 2)
+    low_confidence = overall_confidence < 0.6 or any(c < 0.6 for c in confidences)
+
     return {
         "indicators": results,
         "summary": summary,
         "advice": advice,
         "triage": triage,
         "critical_indicators": critical,
+        "confidence_overall": overall_confidence,
+        "low_confidence": low_confidence,
     }
