@@ -4,157 +4,384 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>VinBiocare AI – Chatbot Sức khỏe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* ── STEP 1: DESIGN TOKENS ───────────────────── */
+        :root {
+            --primary:      #0f2d4e;
+            --primary-mid:  #1a4a7a;
+            --accent:       #0ea5e9;
+            --accent-dark:  #0369a1;
+            --accent-bg:    #e0f2fe;
+            --success:      #059669;
+            --success-bg:   #d1fae5;
+            --warning:      #d97706;
+            --warning-bg:   #fef3c7;
+            --danger:       #dc2626;
+            --danger-bg:    #fee2e2;
+            --bg:           #f1f5f9;
+            --surface:      #ffffff;
+            --surface-2:    #f8fafc;
+            --border:       #e2e8f0;
+            --border-mid:   #cbd5e1;
+            --text:         #0f172a;
+            --text-2:       #475569;
+            --text-3:       #94a3b8;
+            --r-sm:         8px;
+            --r:            14px;
+            --sh-sm:        0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --sh:           0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+            --sh-lg:        0 10px 30px rgba(0,0,0,0.10), 0 4px 10px rgba(0,0,0,0.06);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
         html, body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f0f2f5;
+            font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
             height: 100%;
             overflow: hidden;
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.6;
+            font-weight: 500;
+            -webkit-font-smoothing: antialiased;
         }
+
+        /* ── APP SHELL ───────────────────────────────── */
         .app {
             display: flex;
             flex-direction: column;
             height: 100%;
             max-width: 480px;
             margin: 0 auto;
-            background: #f0f2f5;
-            position: relative;
+            background: var(--bg);
         }
+
         @media (min-width: 481px) {
             .app {
-                border-left: 1px solid #ddd;
-                border-right: 1px solid #ddd;
-                box-shadow: 0 0 30px rgba(0,0,0,0.08);
+                border-left: 1px solid var(--border);
+                border-right: 1px solid var(--border);
+                box-shadow: var(--sh-lg);
             }
         }
 
-        /* Header */
+        /* ── STEP 2: HEADER ──────────────────────────── */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--primary);
             color: white;
-            padding: 12px 16px;
+            padding: 13px 16px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 11px;
             flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
             z-index: 10;
         }
+
+        /* Dot-grid pattern */
+        .header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+            background-size: 18px 18px;
+            pointer-events: none;
+        }
+
+        .header-avatar-wrap { position: relative; flex-shrink: 0; }
+
         .header-avatar {
-            width: 36px; height: 36px;
+            width: 38px; height: 38px;
             border-radius: 50%;
             object-fit: cover;
-            border: 2px solid rgba(255,255,255,0.4);
+            border: 2px solid rgba(255,255,255,0.22);
+            display: block;
         }
-        .header-text h1 { font-size: 1.05em; font-weight: 700; }
-        .header-text small { opacity: 0.85; font-size: 0.72em; }
 
-        /* Chat area */
+        .header-avatar-fallback {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1em;
+            border: 2px solid rgba(255,255,255,0.22);
+        }
+
+        .online-dot {
+            position: absolute;
+            bottom: 1px; right: 1px;
+            width: 10px; height: 10px;
+            background: #22c55e;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            animation: pulse-ring 2.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.45); }
+            50%       { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+        }
+
+        .header-info { flex: 1; position: relative; }
+
+        .header-title {
+            font-size: 1.0em;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            line-height: 1.2;
+        }
+
+        .header-sub {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 2px;
+        }
+
+        .header-tagline { font-size: 0.68em; opacity: 0.65; font-weight: 400; }
+
+        .online-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(34,197,94,0.18);
+            color: #86efac;
+            border: 1px solid rgba(34,197,94,0.28);
+            padding: 1px 7px;
+            border-radius: 20px;
+            font-size: 0.67em;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+        }
+
+        .online-badge::before {
+            content: '';
+            width: 5px; height: 5px;
+            background: #22c55e;
+            border-radius: 50%;
+            display: inline-block;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.35; }
+        }
+
+        /* ── CHAT CONTAINER ──────────────────────────── */
         .chat-container {
             flex: 1;
             overflow-y: auto;
-            padding: 12px;
+            padding: 14px 12px 8px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
             -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
         }
 
-        /* Message row */
+        .chat-container::-webkit-scrollbar { width: 3px; }
+        .chat-container::-webkit-scrollbar-thumb {
+            background: var(--border-mid); border-radius: 3px;
+        }
+
+        /* ── STEP 4: WELCOME SCREEN ──────────────────── */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: fadeUp 0.4s ease both;
+        }
+
+        .welcome-greeting {
+            background: var(--surface);
+            border-radius: var(--r);
+            padding: 14px 16px;
+            box-shadow: var(--sh-sm);
+            border-left: 3px solid var(--accent);
+        }
+
+        .welcome-greeting p {
+            font-size: 0.88em;
+            line-height: 1.65;
+            color: var(--text-2);
+        }
+
+        .welcome-greeting strong { color: var(--primary); font-weight: 700; }
+
+        .feature-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .feature-card {
+            background: var(--surface);
+            border-radius: var(--r-sm);
+            padding: 13px 8px;
+            text-align: center;
+            box-shadow: var(--sh-sm);
+            border: 1px solid var(--border);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .feature-card:active { transform: scale(0.96); }
+
+        .feature-icon { font-size: 1.55em; display: block; margin-bottom: 5px; }
+
+        .feature-label {
+            font-size: 0.67em;
+            font-weight: 600;
+            color: var(--text-2);
+            line-height: 1.35;
+        }
+
+        /* ── STEP 5: WELCOME SCENARIOS ───────────────── */
+        .welcome-scenarios {
+            background: var(--surface);
+            border-radius: var(--r-sm);
+            padding: 11px 13px;
+            box-shadow: var(--sh-sm);
+            border: 1px solid var(--border);
+        }
+
+        .welcome-scenarios-label {
+            font-size: 0.67em;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+
+        .scenario-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .scenario-chip {
+            padding: 4px 12px;
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.74em;
+            font-weight: 600;
+            color: var(--text-2);
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .scenario-chip:hover, .scenario-chip:active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* ── MESSAGE ROWS ────────────────────────────── */
         .msg-row {
             display: flex;
             gap: 8px;
             max-width: 92%;
+            animation: fadeUp 0.22s ease both;
         }
-        .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
-        .msg-row.bot { align-self: flex-start; }
-        .msg-avatar {
-            width: 28px; height: 28px;
-            border-radius: 50%;
-            object-fit: cover;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-        .msg-row.user .msg-avatar { display: none; }
 
-        /* Bubbles */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+        .msg-row.bot  { align-self: flex-start; }
+
+        .msg-avatar-wrap { flex-shrink: 0; padding-top: 2px; }
+
+        .msg-avatar {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65em;
+            font-weight: 800;
+            color: white;
+            box-shadow: var(--sh-sm);
+            letter-spacing: -0.02em;
+        }
+
+        .msg-row.user .msg-avatar-wrap { display: none; }
+
+        .msg-content { display: flex; flex-direction: column; gap: 3px; }
+        .msg-row.user .msg-content { align-items: flex-end; }
+
+        .msg-time {
+            font-size: 0.60em;
+            color: var(--text-3);
+            font-weight: 500;
+            padding: 0 4px;
+        }
+
+        /* ── STEP 4: BUBBLES ─────────────────────────── */
         .bubble {
             padding: 10px 14px;
-            border-radius: 18px;
-            line-height: 1.5;
+            border-radius: 16px;
+            line-height: 1.6;
             font-size: 0.9em;
+            font-weight: 500;
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
+
         .msg-row.user .bubble {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--primary), var(--primary-mid));
             color: white;
             border-bottom-right-radius: 4px;
-        }
-        .bubble.typing {
-            color: #999;
-            font-style: italic;
+            box-shadow: var(--sh);
         }
 
-        /* Markdown styles inside bot bubbles */
-        .bubble strong, .bubble b { font-weight: 700; color: #4a4a8a; }
+        .msg-row.bot .bubble {
+            background: var(--surface);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+            box-shadow: var(--sh);
+        }
+
+        .bubble.typing { color: var(--text-3); font-style: italic; font-weight: 400; }
+
+        /* Markdown */
+        .bubble strong, .bubble b { font-weight: 700; color: var(--primary); }
         .bubble em, .bubble i { font-style: italic; }
-        .bubble ul, .bubble ol { margin: 4px 0 4px 0; padding: 0; list-style: none; }
+        .bubble ul, .bubble ol { margin: 5px 0 2px; padding: 0; list-style: none; }
         .bubble li {
             padding: 5px 10px;
-            margin-bottom: 3px;
-            background: #f8f9ff;
-            border-left: 3px solid #667eea;
+            margin-bottom: 4px;
+            background: var(--surface-2);
+            border-left: 3px solid var(--accent);
             border-radius: 0 6px 6px 0;
             font-size: 0.93em;
-            line-height: 1.45;
+            line-height: 1.5;
         }
-        .bubble p { margin-bottom: 4px; }
+        .bubble p { margin-bottom: 5px; }
         .bubble p:last-child { margin-bottom: 0; }
         .bubble code {
-            background: rgba(102, 126, 234, 0.1);
-            color: #5a5aad;
+            background: var(--accent-bg);
+            color: var(--accent-dark);
             padding: 1px 5px;
             border-radius: 4px;
-            font-size: 0.88em;
+            font-size: 0.86em;
             font-family: 'SF Mono', Monaco, monospace;
         }
-
-        /* Rich bot response card style */
-        .msg-row.bot .bubble {
-            background: white;
-            color: #1a1a1a;
-            border-bottom-left-radius: 4px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-            border-top: 3px solid #667eea;
-        }
-
-        /* Colored keyword highlights */
-        .bubble .hl-danger { color: #ef4444; font-weight: 600; }
-        .bubble .hl-warning { color: #d97706; font-weight: 600; }
-        .bubble .hl-safe { color: #16a34a; font-weight: 600; }
-        .bubble .hl-info { color: #667eea; font-weight: 600; }
-
-        /* Section divider inside bubble */
-        .bubble hr {
-            border: none;
-            border-top: 1px solid #e5e7eb;
-            margin: 8px 0;
-        }
-
-        /* Numbered steps look */
-        .bubble ol { counter-reset: step; margin: 4px 0; padding: 0; list-style: none; }
-        .bubble ol li {
-            counter-increment: step;
-            border-left: 3px solid #10b981;
-        }
+        .bubble ol { counter-reset: step; }
+        .bubble ol li { counter-increment: step; border-left-color: var(--success); }
         .bubble ol li::before {
             content: counter(step);
-            background: #10b981;
+            background: var(--success);
             color: white;
-            font-size: 0.7em;
+            font-size: 0.68em;
             font-weight: 700;
-            width: 16px; height: 16px;
+            width: 15px; height: 15px;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
@@ -162,241 +389,319 @@
             margin-right: 6px;
             vertical-align: middle;
         }
+        .bubble .hl-danger  { color: var(--danger);  font-weight: 700; }
+        .bubble .hl-warning { color: var(--warning); font-weight: 700; }
+        .bubble .hl-safe    { color: var(--success); font-weight: 700; }
+        .bubble .hl-info    { color: var(--accent);  font-weight: 600; }
+        .bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 
-        /* Rule output card */
-        .rule-card {
+        /* ── STEP 3: TRIAGE BANNER (above card) ──────── */
+        .triage-banner-wrap {
             align-self: flex-start;
-            max-width: 92%;
-            background: white;
-            border-radius: 14px;
-            padding: 12px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-            margin-left: 36px;
-        }
-        .rule-card h3 {
-            font-size: 0.82em;
-            color: #667eea;
-            margin-bottom: 8px;
-            font-weight: 700;
-        }
-        .indicator-row {
-            display: flex;
-            align-items: center;
-            padding: 5px 8px;
-            border-radius: 6px;
-            margin-bottom: 3px;
-            font-size: 0.82em;
-        }
-        .indicator-row.green { background: #f0fdf4; }
-        .indicator-row.yellow { background: #fffbeb; }
-        .indicator-row.red { background: #fef2f2; }
-        .indicator-row.gray { background: #f3f4f6; }
-        .ind-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            margin-right: 6px;
-            flex-shrink: 0;
-        }
-        .ind-dot.green { background: #22c55e; }
-        .ind-dot.yellow { background: #eab308; }
-        .ind-dot.red { background: #ef4444; }
-        .ind-dot.gray { background: #9ca3af; }
-        .ind-name { flex: 1; font-weight: 600; font-size: 0.92em; }
-        .ind-val { font-weight: 700; margin-left: 6px; white-space: nowrap; }
-        .ind-status {
-            font-size: 0.7em;
-            padding: 1px 7px;
-            border-radius: 10px;
-            color: white;
-            margin-left: 6px;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        .ind-status.green { background: #22c55e; }
-        .ind-status.yellow { background: #eab308; }
-        .ind-status.red { background: #ef4444; }
-        .ind-status.gray { background: #9ca3af; }
-
-        .vinmec-card {
-            background: linear-gradient(135deg, #059669, #10b981);
-            color: white;
-            padding: 10px 12px;
-            border-radius: 8px;
-            margin-top: 6px;
-            font-size: 0.8em;
-            font-weight: 600;
+            width: calc(100% - 38px);
+            margin-left: 38px;
+            animation: fadeUp 0.25s ease both;
         }
 
-        /* Urgent triage banner */
-        .triage-urgent {
+        .triage-banner {
             display: flex;
             align-items: flex-start;
-            gap: 8px;
-            background: #fef2f2;
-            border: 1.5px solid #ef4444;
-            border-left: 4px solid #ef4444;
-            border-radius: 8px;
-            padding: 10px 12px;
-            margin-top: 6px;
-            font-size: 0.8em;
-            color: #991b1b;
+            gap: 9px;
+            border-radius: var(--r-sm);
+            padding: 10px 13px;
+            font-size: 0.82em;
             font-weight: 600;
-            line-height: 1.4;
-        }
-        .triage-urgent .triage-icon { font-size: 1.2em; flex-shrink: 0; margin-top: 1px; }
-        .triage-monitor {
-            background: #fffbeb;
-            border: 1.5px solid #eab308;
-            border-left: 4px solid #eab308;
-            border-radius: 8px;
-            padding: 8px 12px;
-            margin-top: 6px;
-            font-size: 0.8em;
-            color: #92400e;
-            font-weight: 600;
+            line-height: 1.45;
         }
 
-        /* Quick actions */
-        .quick-actions {
+        .triage-banner.urgent {
+            background: var(--danger-bg);
+            border: 1.5px solid #fca5a5;
+            border-left: 4px solid var(--danger);
+            color: #991b1b;
+        }
+
+        .triage-banner.monitor {
+            background: var(--warning-bg);
+            border: 1.5px solid #fcd34d;
+            border-left: 4px solid var(--warning);
+            color: #92400e;
+        }
+
+        .triage-icon { font-size: 1.1em; flex-shrink: 0; margin-top: 1px; }
+
+        /* ── STEP 3: RULE CARD ───────────────────────── */
+        .rule-card {
+            align-self: flex-start;
+            width: calc(100% - 38px);
+            background: var(--surface);
+            border-radius: var(--r);
+            padding: 13px;
+            box-shadow: var(--sh);
+            margin-left: 38px;
+            animation: fadeUp 0.28s ease both;
+        }
+
+        .rule-card-title {
+            font-size: 0.7em;
+            font-weight: 700;
+            color: var(--text-3);
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            margin-bottom: 10px;
+        }
+
+        .ind-group-label {
+            font-size: 0.67em;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 4px 0 5px;
+            margin-top: 2px;
+        }
+        .ind-group-label.red    { color: var(--danger); }
+        .ind-group-label.yellow { color: var(--warning); }
+        .ind-group-label.green  { color: var(--success); }
+        .ind-group-label.gray   { color: var(--text-3); }
+
+        .indicator-row {
+            padding: 8px 10px;
+            border-radius: var(--r-sm);
+            margin-bottom: 6px;
+        }
+        .indicator-row.green  { background: var(--success-bg); }
+        .indicator-row.yellow { background: var(--warning-bg); }
+        .indicator-row.red    { background: var(--danger-bg); }
+        .indicator-row.gray   { background: var(--surface-2); }
+
+        .ind-header {
             display: flex;
-            gap: 6px;
-            padding: 6px 12px;
-            flex-wrap: wrap;
-            background: #f0f2f5;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 6px;
+        }
+
+        .ind-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .ind-dot.green  { background: var(--success); }
+        .ind-dot.yellow { background: var(--warning); }
+        .ind-dot.red    { background: var(--danger); }
+        .ind-dot.gray   { background: var(--text-3); }
+
+        .ind-name { flex: 1; font-weight: 600; font-size: 0.86em; color: var(--text); }
+
+        .ind-val-wrap { text-align: right; }
+        .ind-val { font-weight: 700; font-size: 0.9em; color: var(--text); white-space: nowrap; }
+        .ind-ref { font-size: 0.66em; color: var(--text-3); font-weight: 500; white-space: nowrap; }
+
+        .ind-status {
+            font-size: 0.67em;
+            padding: 2px 8px;
+            border-radius: 20px;
+            color: white;
+            font-weight: 700;
+            white-space: nowrap;
             flex-shrink: 0;
         }
+        .ind-status.green  { background: var(--success); }
+        .ind-status.yellow { background: var(--warning); }
+        .ind-status.red    { background: var(--danger); }
+        .ind-status.gray   { background: var(--text-3); }
+
+        /* Progress bar */
+        .progress-track {
+            position: relative;
+            height: 5px;
+            background: rgba(0,0,0,0.07);
+            border-radius: 10px;
+            overflow: visible;
+        }
+
+        .progress-normal-zone {
+            position: absolute;
+            top: 0; height: 100%;
+            background: rgba(5,150,105,0.25);
+            border-radius: 10px;
+        }
+
+        .progress-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 11px; height: 11px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.22);
+            z-index: 2;
+        }
+        .progress-marker.green  { background: var(--success); }
+        .progress-marker.yellow { background: var(--warning); }
+        .progress-marker.red    { background: var(--danger); }
+        .progress-marker.gray   { background: var(--text-3); }
+
+        .vinmec-cta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, var(--success), #047857);
+            color: white;
+            padding: 10px 14px;
+            border-radius: var(--r-sm);
+            margin-top: 8px;
+            font-size: 0.8em;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* ── STEP 5: QUICK ACTIONS (slide-up) ────────── */
+        .quick-actions {
+            display: none;
+            gap: 6px;
+            padding: 7px 12px;
+            flex-wrap: wrap;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+
+        .quick-actions.visible {
+            display: flex;
+            animation: slideUp 0.3s ease both;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
         .quick-btn {
             padding: 5px 12px;
-            border: 1.5px solid #667eea;
+            border: 1.5px solid var(--accent);
             background: white;
-            color: #667eea;
-            border-radius: 16px;
+            color: var(--accent);
+            border-radius: 20px;
             cursor: pointer;
-            font-size: 0.76em;
-            font-weight: 600;
-            transition: all 0.2s;
+            font-size: 0.74em;
+            font-weight: 700;
+            font-family: inherit;
+            transition: all 0.15s;
             white-space: nowrap;
         }
-        .quick-btn:hover, .quick-btn:active { background: #667eea; color: white; }
 
-        /* Scenarios bar */
-        .scenarios-bar {
-            display: flex;
-            gap: 5px;
-            padding: 6px 12px;
-            background: white;
-            border-top: 1px solid #eee;
-            flex-wrap: wrap;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        .scenarios-bar span {
-            font-size: 0.72em;
-            color: #999;
-            font-weight: 600;
-        }
-        .scenario-chip {
-            padding: 3px 10px;
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 0.72em;
-            color: #555;
-            transition: all 0.2s;
-        }
-        .scenario-chip:hover, .scenario-chip:active { background: #667eea; color: white; border-color: #667eea; }
+        .quick-btn:hover, .quick-btn:active { background: var(--accent); color: white; }
 
-        /* Input area */
+        /* ── STEP 5: INPUT AREA ──────────────────────── */
         .input-area {
             display: flex;
             gap: 8px;
-            padding: 8px 12px;
-            background: white;
-            border-top: 1px solid #e5e7eb;
+            padding: 10px 12px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
             flex-shrink: 0;
             align-items: flex-end;
         }
+
         .input-area textarea {
             flex: 1;
             padding: 9px 14px;
-            border: 1.5px solid #e0e0e0;
+            border: 1.5px solid var(--border);
             border-radius: 20px;
             font-size: 0.9em;
             font-family: inherit;
+            font-weight: 500;
             resize: none;
             outline: none;
             max-height: 80px;
             min-height: 38px;
-            line-height: 1.35;
+            line-height: 1.5;
+            background: var(--bg);
+            color: var(--text);
+            transition: border-color 0.15s, background 0.15s;
         }
-        .input-area textarea:focus { border-color: #667eea; }
+
+        .input-area textarea:focus { border-color: var(--accent); background: white; }
+        .input-area textarea::placeholder { color: var(--text-3); }
+
+        /* Step 5: SVG send button */
         .send-btn {
             width: 38px; height: 38px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
             color: white;
             border: none;
             border-radius: 50%;
             cursor: pointer;
-            font-size: 1.1em;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             flex-shrink: 0;
-            transition: transform 0.15s;
+            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 2px 8px rgba(14,165,233,0.38);
         }
-        .send-btn:hover { transform: scale(1.06); }
-        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .send-btn:hover { transform: scale(1.07); box-shadow: 0 4px 14px rgba(14,165,233,0.5); }
+        .send-btn:disabled { opacity: 0.42; cursor: not-allowed; transform: none; box-shadow: none; }
+        .send-btn svg { width: 15px; height: 15px; }
 
         .disclaimer {
             text-align: center;
-            font-size: 0.65em;
-            color: #aaa;
-            padding: 4px 8px;
-            background: #f0f2f5;
+            font-size: 0.60em;
+            color: var(--text-3);
+            padding: 4px 8px 6px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
             flex-shrink: 0;
+            font-weight: 500;
         }
 
-        /* Safe area for notch phones */
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
-            .input-area { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+            .input-area { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
         }
     </style>
 </head>
 <body>
     <div class="app">
-        <div class="header">
-            <img src="/static/logo.png" alt="VinBiocare" class="header-avatar"
-                 onerror="this.style.display='none'">
-            <div class="header-text">
-                <h1>VinBiocare AI</h1>
-                <small>Chatbot phân tích chỉ số xét nghiệm</small>
-            </div>
-        </div>
 
+        <!-- STEP 2: HEADER -->
+        <header class="header">
+            <div class="header-avatar-wrap">
+                <img src="/static/logo.png" alt="VinBiocare" class="header-avatar"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                <div class="header-avatar-fallback">🏥</div>
+                <div class="online-dot"></div>
+            </div>
+            <div class="header-info">
+                <div class="header-title">VinBiocare AI</div>
+                <div class="header-sub">
+                    <span class="header-tagline">Phân tích chỉ số xét nghiệm</span>
+                    <span class="online-badge">Đang hoạt động</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- CHAT -->
         <div class="chat-container" id="chatContainer"></div>
 
-        <div class="quick-actions" id="quickActions" style="display:none;">
+        <!-- STEP 5: QUICK ACTIONS -->
+        <div class="quick-actions" id="quickActions">
             <button class="quick-btn" onclick="sendQuick('Phân tích chi tiết các chỉ số')">Phân tích chi tiết</button>
             <button class="quick-btn" onclick="sendQuick('Giải thích từng chỉ số bất thường')">Giải thích chỉ số</button>
             <button class="quick-btn" onclick="sendQuick('Tôi cần làm gì tiếp theo?')">Bước tiếp theo</button>
         </div>
 
-        <div class="scenarios-bar">
-            <span>Demo:</span>
-            <button class="scenario-chip" onclick="loadScenario('cardiac')">Tim mạch</button>
-            <button class="scenario-chip" onclick="loadScenario('diabetes')">Tiểu đường</button>
-            <button class="scenario-chip" onclick="loadScenario('kidney')">Thận</button>
-            <button class="scenario-chip" onclick="loadScenario('normal')">Bình thường</button>
-            <button class="scenario-chip" onclick="loadScenario('mixed')">Hỗn hợp</button>
-        </div>
-
+        <!-- STEP 5: INPUT + SVG SEND BUTTON -->
         <div class="input-area">
-            <textarea id="userInput" rows="1" placeholder="Nhập chỉ số hoặc đặt câu hỏi..."
+            <textarea id="userInput" rows="1"
+                      placeholder="Nhập chỉ số xét nghiệm (VD: LDL:160 HDL:35)..."
                       onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-            <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#9654;</button>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()" aria-label="Gửi">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
         </div>
 
         <div class="disclaimer">
-            VinBiocare AI &copy; 2026 – Nhóm 05 E403 | Không thay thế chẩn đoán y khoa
+            VinBiocare AI © 2026 – Nhóm 05 E403 &nbsp;·&nbsp; Không thay thế chẩn đoán y khoa
         </div>
     </div>
 
@@ -413,16 +718,14 @@
 
         let conversationHistory = [];
         let lastRuleOutput = null;
+        let hasAnalyzed = false;
 
-        // --- Markdown parser ---
+        // ── Markdown parser ──────────────────────────
         function renderMarkdown(text) {
-            // Normalize line endings
             text = text.replace(/\r\n/g, '\n');
-
-            // Split into lines for block-level processing
             const lines = text.split('\n');
             const blocks = [];
-            let currentList = null;   // { type: 'ul'|'ol', items: [] }
+            let currentList = null;
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
@@ -442,15 +745,10 @@
                     }
                     currentList.items.push(olMatch[1]);
                 } else {
-                    if (currentList) {
-                        blocks.push(currentList);
-                        currentList = null;
-                    }
-                    // Blank line = paragraph break
+                    if (currentList) { blocks.push(currentList); currentList = null; }
                     if (line.trim() === '') {
                         blocks.push({ type: 'break' });
                     } else {
-                        // Merge consecutive text lines into one paragraph
                         const last = blocks[blocks.length - 1];
                         if (last && last.type === 'text') {
                             last.content += '\n' + line;
@@ -462,12 +760,10 @@
             }
             if (currentList) blocks.push(currentList);
 
-            // Render blocks to HTML
             let html = '';
             for (const block of blocks) {
-                if (block.type === 'break') {
-                    continue; // paragraph spacing handled by CSS margin
-                } else if (block.type === 'ul' || block.type === 'ol') {
+                if (block.type === 'break') continue;
+                else if (block.type === 'ul' || block.type === 'ol') {
                     const tag = block.type;
                     html += `<${tag}>` +
                         block.items.map(item => `<li>${inlineFormat(item)}</li>`).join('') +
@@ -476,46 +772,84 @@
                     html += `<p>${inlineFormat(block.content)}</p>`;
                 }
             }
-
             return html || '<p></p>';
         }
 
         function inlineFormat(text) {
-            // Escape HTML
-            text = text
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-
-            // Bold
+            text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
             text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
-
-            // Italic
             text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
             text = text.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '<em>$1</em>');
-
-            // Inline code
             text = text.replace(/`(.+?)`/g, '<code>$1</code>');
-
-            // Color highlights for health keywords
             text = text.replace(/\b(nguy hiểm|nguy cơ cao|mức cao|quá cao|rất cao|danger)\b/gi,
                 '<span class="hl-danger">$1</span>');
             text = text.replace(/\b(cảnh báo|hơi cao|hơi thấp|chú ý|warning)\b/gi,
                 '<span class="hl-warning">$1</span>');
             text = text.replace(/\b(bình thường|ổn định|an toàn|tốt|normal)\b/gi,
                 '<span class="hl-safe">$1</span>');
-
-            // Newlines within a text block become <br>
             text = text.replace(/\n/g, '<br>');
-
             return text;
         }
 
-        // --- Init ---
-        window.addEventListener("DOMContentLoaded", () => {
-            addBotMessage("Xin chào! Tôi là trợ lý sức khỏe **VinBiocare AI**.\nBạn có thể:\n- Nhập chỉ số xét nghiệm (VD: `LDL:160 HDL:35`)\n- Paste JSON chỉ số\n- Hoặc đặt câu hỏi về sức khỏe\n\nHãy thử chọn một kịch bản demo bên dưới!");
-        });
+        // ── Helpers ──────────────────────────────────
+        function nowHHMM() {
+            const d = new Date();
+            return d.getHours().toString().padStart(2,'0') + ':' +
+                   d.getMinutes().toString().padStart(2,'0');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function scrollBottom() {
+            const c = document.getElementById("chatContainer");
+            requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
+        }
+
+        // ── STEP 4: Welcome screen ────────────────────
+        function showWelcome() {
+            const container = document.getElementById("chatContainer");
+            const el = document.createElement("div");
+            el.className = "welcome-screen";
+            el.id = "welcomeScreen";
+            el.innerHTML = `
+                <div class="welcome-greeting">
+                    <p>Xin chào! Tôi là <strong>VinBiocare AI</strong> — trợ lý phân tích
+                    chỉ số xét nghiệm của bạn.<br>Nhập chỉ số hoặc chọn kịch bản demo
+                    bên dưới để bắt đầu.</p>
+                </div>
+                <div class="feature-cards">
+                    <div class="feature-card">
+                        <span class="feature-icon">🔬</span>
+                        <span class="feature-label">Phân tích chỉ số</span>
+                    </div>
+                    <div class="feature-card">
+                        <span class="feature-icon">💬</span>
+                        <span class="feature-label">Giải thích dễ hiểu</span>
+                    </div>
+                    <div class="feature-card">
+                        <span class="feature-icon">🚨</span>
+                        <span class="feature-label">Cảnh báo nguy hiểm</span>
+                    </div>
+                </div>
+                <div class="welcome-scenarios">
+                    <div class="welcome-scenarios-label">Kịch bản demo</div>
+                    <div class="scenario-chips">
+                        <button class="scenario-chip" onclick="loadScenario('cardiac')">Tim mạch</button>
+                        <button class="scenario-chip" onclick="loadScenario('diabetes')">Tiểu đường</button>
+                        <button class="scenario-chip" onclick="loadScenario('kidney')">Thận</button>
+                        <button class="scenario-chip" onclick="loadScenario('normal')">Bình thường</button>
+                        <button class="scenario-chip" onclick="loadScenario('mixed')">Hỗn hợp</button>
+                    </div>
+                </div>`;
+            container.appendChild(el);
+        }
+
+        window.addEventListener("DOMContentLoaded", showWelcome);
 
         function loadScenario(name) {
             document.getElementById("userInput").value = SCENARIOS[name];
@@ -523,10 +857,7 @@
         }
 
         function handleKey(e) {
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
         }
 
         function autoResize(el) {
@@ -539,6 +870,7 @@
             sendMessage();
         }
 
+        // ── Parse indicators ──────────────────────────
         const KNOWN_INDICATORS = [
             "Glucose", "Insulin", "BMI",
             "BP_Systolic", "BP_Diastolic",
@@ -549,7 +881,7 @@
         function parseIndicators(text) {
             const indicators = {};
 
-            // 1. Try JSON first
+            // 1. Try JSON
             try {
                 const parsed = JSON.parse(text);
                 if (typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -560,35 +892,35 @@
                 }
             } catch {}
 
-            // 2. "key:value" or "key=value" (original behavior)
+            // 2. key:value or key=value
             const strictPattern = /(\w+)\s*[:=]\s*([\d.]+)/g;
             let match;
             while ((match = strictPattern.exec(text)) !== null) {
                 indicators[match[1]] = parseFloat(match[2]);
             }
 
-            // 3. "IndicatorName value" — known indicator names followed by a number (no separator)
-            //    e.g. "glucose 155" or "LDL 165 mg/dL"
+            // 3. Known indicator name followed by number (no separator)
             for (const name of KNOWN_INDICATORS) {
-                if (name in indicators) continue; // already captured by strict pattern
+                if (name in indicators) continue;
                 const loose = new RegExp(
-                    "\\b" + name + "\\b\\s*[:=]?\\s*([\\d]+(?:\\.[\\d]+)?)",
-                    "i"
+                    "\\b" + name + "\\b\\s*[:=]?\\s*([\\d]+(?:\\.[\\d]+)?)", "i"
                 );
                 const m = text.match(loose);
-                if (m) {
-                    // Use the canonical casing from KNOWN_INDICATORS
-                    indicators[name] = parseFloat(m[1]);
-                }
+                if (m) indicators[name] = parseFloat(m[1]);
             }
 
             return Object.keys(indicators).length > 0 ? indicators : null;
         }
 
+        // ── Send message ──────────────────────────────
         async function sendMessage() {
             const input = document.getElementById("userInput");
             const text = input.value.trim();
             if (!text) return;
+
+            // Hide welcome on first send
+            const welcome = document.getElementById("welcomeScreen");
+            if (welcome) welcome.style.display = "none";
 
             input.value = "";
             input.style.height = 'auto';
@@ -601,16 +933,18 @@
 
             try {
                 if (indicators) {
-                    // Step 1: /analyze
                     const analyzeResp = await fetch("/api/analyze", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ indicators })
                     });
+                    if (!analyzeResp.ok) {
+                        const err = await analyzeResp.json();
+                        throw new Error(err.detail || "Lỗi phân tích chỉ số");
+                    }
                     lastRuleOutput = await analyzeResp.json();
                     showRuleCard(lastRuleOutput);
 
-                    // Step 2: /chat with context
                     conversationHistory.push({ role: "user", content: text });
                     showTyping();
 
@@ -629,7 +963,17 @@
                         addBotMessage(chatData.reply);
                         conversationHistory.push({ role: "assistant", content: chatData.reply });
                     }
-                    document.getElementById("quickActions").style.display = "flex";
+
+                    // STEP 5: Smart placeholder after first analysis
+                    if (!hasAnalyzed) {
+                        hasAnalyzed = true;
+                        input.placeholder = "Đặt câu hỏi về kết quả xét nghiệm...";
+                    }
+
+                    // STEP 5: Slide-up quick actions
+                    const qa = document.getElementById("quickActions");
+                    qa.classList.add("visible");
+
                 } else {
                     conversationHistory.push({ role: "user", content: text });
                     showTyping();
@@ -659,11 +1003,16 @@
             }
         }
 
+        // ── STEP 4: Message rendering ─────────────────
         function addUserMessage(text) {
             const container = document.getElementById("chatContainer");
             const row = document.createElement("div");
             row.className = "msg-row user";
-            row.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
+            row.innerHTML = `
+                <div class="msg-content">
+                    <div class="bubble">${escapeHtml(text)}</div>
+                    <span class="msg-time">${nowHHMM()}</span>
+                </div>`;
             container.appendChild(row);
             scrollBottom();
         }
@@ -673,9 +1022,13 @@
             const row = document.createElement("div");
             row.className = "msg-row bot";
             row.innerHTML = `
-                <img src="${LOGO_URL}" alt="Bot" class="msg-avatar" onerror="this.style.display='none'">
-                <div class="bubble">${renderMarkdown(text)}</div>
-            `;
+                <div class="msg-avatar-wrap">
+                    <div class="msg-avatar">AI</div>
+                </div>
+                <div class="msg-content">
+                    <div class="bubble">${renderMarkdown(text)}</div>
+                    <span class="msg-time">${nowHHMM()}</span>
+                </div>`;
             container.appendChild(row);
             scrollBottom();
         }
@@ -686,9 +1039,12 @@
             row.className = "msg-row bot";
             row.id = "typingRow";
             row.innerHTML = `
-                <img src="${LOGO_URL}" alt="Bot" class="msg-avatar" onerror="this.style.display='none'">
-                <div class="bubble typing">Đang phân tích...</div>
-            `;
+                <div class="msg-avatar-wrap">
+                    <div class="msg-avatar">AI</div>
+                </div>
+                <div class="msg-content">
+                    <div class="bubble typing">Đang phân tích...</div>
+                </div>`;
             container.appendChild(row);
             scrollBottom();
         }
@@ -698,49 +1054,109 @@
             if (el) el.remove();
         }
 
+        // ── STEP 3: Progress bar ──────────────────────
+        function buildProgressBar(ind) {
+            const refStr = ind.reference || '';
+            // Handles both em-dash (–) and hyphen (-)
+            const refMatch = refStr.match(/([\d.]+)\s*[–\-]\s*([\d.]+)/);
+            if (!refMatch) return '';
+
+            const normalMin = parseFloat(refMatch[1]);
+            const normalMax = parseFloat(refMatch[2]);
+            const value     = ind.value;
+
+            // Extend display range 50% of span beyond each side
+            const span  = (normalMax - normalMin) || 1;
+            const lo    = normalMin - span * 0.5;
+            const hi    = normalMax + span * 0.5;
+            const range = hi - lo;
+
+            const normLeft  = ((normalMin - lo) / range * 100).toFixed(1);
+            const normWidth = ((normalMax - normalMin) / range * 100).toFixed(1);
+            const valPct    = Math.min(100, Math.max(0,
+                                (value - lo) / range * 100)).toFixed(1);
+
+            return `
+                <div class="progress-track">
+                    <div class="progress-normal-zone"
+                         style="left:${normLeft}%;width:${normWidth}%"></div>
+                    <div class="progress-marker ${ind.color}"
+                         style="left:${valPct}%"></div>
+                </div>`;
+        }
+
+        // ── STEP 3: Rule card ─────────────────────────
         function showRuleCard(ruleOutput) {
             const container = document.getElementById("chatContainer");
-            const card = document.createElement("div");
+
+            // Triage banner ABOVE the card
+            if (ruleOutput.triage === "urgent" || ruleOutput.triage === "monitor") {
+                const wrap = document.createElement("div");
+                wrap.className = "triage-banner-wrap";
+
+                if (ruleOutput.triage === "urgent") {
+                    const names = (ruleOutput.critical_indicators || []).join(", ");
+                    wrap.innerHTML = `
+                        <div class="triage-banner urgent">
+                            <span class="triage-icon">⚠️</span>
+                            <span>Phát hiện chỉ số <strong>NGUY HIỂM</strong>${names ? ': ' + escapeHtml(names) : ''}.
+                            Vui lòng đặt lịch khám chuyên khoa ngay.</span>
+                        </div>`;
+                } else {
+                    wrap.innerHTML = `
+                        <div class="triage-banner monitor">
+                            <span class="triage-icon">⚡</span>
+                            <span>Một số chỉ số cần theo dõi. Nên tái khám trong thời gian tới.</span>
+                        </div>`;
+                }
+                container.appendChild(wrap);
+            }
+
+            // Card — group by severity: red → yellow → green → gray
+            const card  = document.createElement("div");
             card.className = "rule-card";
 
-            let html = '<h3>Kết quả phân tích chỉ số</h3>';
-            for (const ind of ruleOutput.indicators) {
-                html += `
-                    <div class="indicator-row ${ind.color}">
-                        <div class="ind-dot ${ind.color}"></div>
-                        <span class="ind-name">${escapeHtml(ind.name)}</span>
-                        <span class="ind-val">${ind.value}${ind.unit ? ' ' + ind.unit : ''}</span>
-                        <span class="ind-status ${ind.color}">${escapeHtml(ind.status)}</span>
-                    </div>`;
+            const order  = ["red", "yellow", "green", "gray"];
+            const labels = { red: "Nguy hiểm", yellow: "Cảnh báo",
+                             green: "Bình thường", gray: "Chưa xác định" };
+            const groups = {};
+            for (const c of order) groups[c] = ruleOutput.indicators.filter(i => i.color === c);
+
+            let html = '<div class="rule-card-title">Kết quả phân tích chỉ số</div>';
+
+            for (const color of order) {
+                const inds = groups[color];
+                if (!inds.length) continue;
+                // Show group label only for non-normal groups
+                if (color !== "green") {
+                    html += `<div class="ind-group-label ${color}">${labels[color]}</div>`;
+                }
+                for (const ind of inds) {
+                    html += `
+                        <div class="indicator-row ${ind.color}">
+                            <div class="ind-header">
+                                <div class="ind-dot ${ind.color}"></div>
+                                <span class="ind-name">${escapeHtml(ind.name)}</span>
+                                <div class="ind-val-wrap">
+                                    <div class="ind-val">${ind.value}${ind.unit ? ' ' + ind.unit : ''}</div>
+                                    ${ind.reference
+                                        ? `<div class="ind-ref">Tham chiếu: ${escapeHtml(ind.reference)}</div>`
+                                        : ''}
+                                </div>
+                                <span class="ind-status ${ind.color}">${escapeHtml(ind.status)}</span>
+                            </div>
+                            ${buildProgressBar(ind)}
+                        </div>`;
+                }
             }
 
             if (ruleOutput.triage === "urgent") {
-                const names = (ruleOutput.critical_indicators || []).join(", ");
-                html += `<div class="triage-urgent">
-                    <span class="triage-icon">⚠️</span>
-                    <span>Có chỉ số ở mức <strong>NGUY HIỂM</strong>${names ? ': ' + escapeHtml(names) : ''}. Vui lòng đặt lịch khám chuyên khoa ngay.</span>
-                </div>
-                <div class="vinmec-card">Đặt lịch khám chuyên khoa tại Vinmec ngay hôm nay</div>`;
-            } else if (ruleOutput.triage === "monitor") {
-                html += `<div class="triage-monitor">Một số chỉ số cần theo dõi. Nên tái khám trong thời gian tới.</div>`;
+                html += `<div class="vinmec-cta">🏥 Đặt lịch khám tại Vinmec ngay hôm nay</div>`;
             }
 
             card.innerHTML = html;
             container.appendChild(card);
             scrollBottom();
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement("div");
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function scrollBottom() {
-            const container = document.getElementById("chatContainer");
-            requestAnimationFrame(() => {
-                container.scrollTop = container.scrollHeight;
-            });
         }
     </script>
 </body>

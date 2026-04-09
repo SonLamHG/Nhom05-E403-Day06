@@ -64,6 +64,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     context: dict | None = None
+    analysis_history: list[dict] | None = None
 
 
 # --- Endpoints ---
@@ -103,6 +104,19 @@ def chat(req: ChatRequest):
             f"Hãy dựa vào dữ liệu trên để trả lời câu hỏi của người dùng."
         )
         openai_messages.append({"role": "system", "content": context_msg})
+
+    # If analysis history has 2+ entries, inject comparison context
+    if req.analysis_history and len(req.analysis_history) >= 2:
+        last_two = req.analysis_history[-2:]
+        comparison_msg = (
+            f"Người dùng muốn so sánh 2 kết quả xét nghiệm gần nhất:\n\n"
+            f"**Kết quả lần {len(req.analysis_history) - 1}:**\n"
+            f"```json\n{json.dumps(last_two[0], ensure_ascii=False, indent=2)}\n```\n\n"
+            f"**Kết quả lần {len(req.analysis_history)}:**\n"
+            f"```json\n{json.dumps(last_two[1], ensure_ascii=False, indent=2)}\n```\n\n"
+            f"Hãy so sánh 2 kết quả trên, chỉ ra các chỉ số thay đổi (tốt hơn/xấu hơn/không đổi) và đưa ra nhận xét tổng thể."
+        )
+        openai_messages.append({"role": "system", "content": comparison_msg})
 
     # Add conversation history
     for msg in req.messages:
