@@ -9,6 +9,38 @@ def load_indicators():
 
 INDICATORS = load_indicators()
 
+# Reverse map: display name → key (built once at startup)
+_NAME_TO_KEY: dict[str, str] = {info["name"]: key for key, info in INDICATORS.items()}
+
+# Plausible physiological bounds — values outside these are likely data-entry errors
+_PLAUSIBLE_BOUNDS: dict[str, tuple[float, float]] = {
+    "Glucose":                  (20.0,  600.0),
+    "Insulin":                  (0.0,   300.0),
+    "BMI":                      (10.0,  70.0),
+    "BP_Systolic":              (40.0,  220.0),
+    "BP_Diastolic":             (30.0,  140.0),
+    "SkinThickness":            (1.0,   80.0),
+    "DiabetesPedigreeFunction": (0.0,   2.5),
+    "LDL":                      (0.0,   400.0),
+    "HDL":                      (5.0,   200.0),
+    "Creatinine":               (0.1,   20.0),
+}
+
+
+def validate_indicators(data: dict[str, float]) -> None:
+    """Raise ValueError if any indicator value is outside plausible physiological bounds."""
+    import math
+    errors: list[str] = []
+    for key, value in data.items():
+        if math.isnan(value) or math.isinf(value):
+            errors.append(f"{key}: giá trị không hợp lệ ({value})")
+            continue
+        bounds = _PLAUSIBLE_BOUNDS.get(key)
+        if bounds and not (bounds[0] <= value <= bounds[1]):
+            errors.append(f"{key}: {value} nằm ngoài khoảng sinh lý cho phép [{bounds[0]}, {bounds[1]}]")
+    if errors:
+        raise ValueError("Dữ liệu đầu vào không hợp lệ: " + "; ".join(errors))
+
 
 def evaluate_indicator(name: str, value: float) -> dict:
     """Evaluate a single indicator against rules. Returns status + message."""
@@ -98,17 +130,13 @@ def generate_summary(results: list[dict]) -> str:
         return "Các chỉ số xét nghiệm của bạn đều nằm trong giới hạn bình thường. Hãy tiếp tục duy trì lối sống lành mạnh!"
 
     # Collect raw indicator keys from results for pattern detection
-    raw_keys = set()
-    for r in danger + warning:
-        for key, info in INDICATORS.items():
-            if info["name"] == r["name"]:
-                raw_keys.add(key)
+    raw_keys = {_NAME_TO_KEY.get(r["name"], r["name"]) for r in danger + warning}
 
     has_lipid = bool(raw_keys & {"LDL", "HDL"})
     has_glucose = "Glucose" in raw_keys
     has_insulin = "Insulin" in raw_keys
     has_kidney = "Creatinine" in raw_keys
-    has_bp = "BloodPressure" in raw_keys
+    has_bp = bool(raw_keys & {"BP_Systolic", "BP_Diastolic"})
     has_bmi = "BMI" in raw_keys
     has_skin = "SkinThickness" in raw_keys
     has_dpf = "DiabetesPedigreeFunction" in raw_keys
@@ -141,8 +169,8 @@ def generate_summary(results: list[dict]) -> str:
         parts.append("Chức năng thận có dấu hiệu suy giảm, cần theo dõi thêm.")
 
     if has_bp:
-        bp_results = [r for r in danger + warning for key, info in INDICATORS.items()
-                      if key == "BloodPressure" and info["name"] == r["name"]]
+        bp_results = [r for r in danger + warning
+                      if _NAME_TO_KEY.get(r["name"]) in {"BP_Systolic", "BP_Diastolic"}]
         if bp_results:
             val = bp_results[0]["value"]
             if val < 90:
@@ -177,18 +205,8 @@ def generate_advice(results: list[dict], age: int | None = None, smoking: bool =
     warning = [r for r in results if r["color"] == "yellow"]
 
     # Map result names back to raw keys
-    abnormal_keys = set()
-    for r in danger + warning:
-        for key, info in INDICATORS.items():
-            if info["name"] == r["name"]:
-                abnormal_keys.add(key)
-
-    # Also track direction (high/low) for bidirectional indicators
-    abnormal_values = {}
-    for r in danger + warning:
-        for key, info in INDICATORS.items():
-            if info["name"] == r["name"]:
-                abnormal_values[key] = r["value"]
+    abnormal_keys = {_NAME_TO_KEY.get(r["name"], r["name"]) for r in danger + warning}
+    abnormal_values = {_NAME_TO_KEY.get(r["name"], r["name"]): r["value"] for r in danger + warning}
 
     # Lipid advice
     if abnormal_keys & {"LDL", "HDL"}:
@@ -223,9 +241,9 @@ def generate_advice(results: list[dict], age: int | None = None, smoking: bool =
         advice.append("Tránh sử dụng thuốc giảm đau không kê đơn thường xuyên.")
 
     # BP advice
-    if "BloodPressure" in abnormal_keys:
-        bp_val = abnormal_values.get("BloodPressure", 120)
-        if bp_val > 120:
+    if abnormal_keys & {"BP_Systolic", "BP_Diastolic"}:
+        sys_val = abnormal_values.get("BP_Systolic", abnormal_values.get("BP_Diastolic", 120))
+        if sys_val > 120:
             advice.append("Giảm muối trong khẩu phần ăn (dưới 5g/ngày).")
             advice.append("Hạn chế rượu bia và caffeine.")
             advice.append("Kiểm tra huyết áp thường xuyên tại nhà.")
@@ -277,17 +295,28 @@ def generate_advice(results: list[dict], age: int | None = None, smoking: bool =
 
 def analyze(data: dict, age: int | None = None, smoking: bool = False) -> dict:
     """Main analysis function."""
+    indicator_data = {k: v for k, v in data.items() if k not in ("age", "smoking")}
+    validate_indicators(indicator_data)
+
     results = []
-    for name, value in data.items():
-        if name in ("age", "smoking"):
-            continue
+    for name, value in indicator_data.items():
         results.append(evaluate_indicator(name, value))
 
     summary = generate_summary(results)
     advice = generate_advice(results, age=age, smoking=smoking)
 
+    critical = [r["name"] for r in results if r["color"] == "red"]
+    if critical:
+        triage = "urgent"
+    elif any(r["color"] == "yellow" for r in results):
+        triage = "monitor"
+    else:
+        triage = "ok"
+
     return {
         "indicators": results,
         "summary": summary,
-        "advice": advice
+        "advice": advice,
+        "triage": triage,
+        "critical_indicators": critical,
     }
