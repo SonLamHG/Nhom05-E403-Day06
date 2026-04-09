@@ -227,6 +227,35 @@
             font-weight: 600;
         }
 
+        /* Urgent triage banner */
+        .triage-urgent {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            background: #fef2f2;
+            border: 1.5px solid #ef4444;
+            border-left: 4px solid #ef4444;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-top: 6px;
+            font-size: 0.8em;
+            color: #991b1b;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .triage-urgent .triage-icon { font-size: 1.2em; flex-shrink: 0; margin-top: 1px; }
+        .triage-monitor {
+            background: #fffbeb;
+            border: 1.5px solid #eab308;
+            border-left: 4px solid #eab308;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-top: 6px;
+            font-size: 0.8em;
+            color: #92400e;
+            font-weight: 600;
+        }
+
         /* Quick actions */
         .quick-actions {
             display: flex;
@@ -375,11 +404,11 @@
         const LOGO_URL = "/static/logo.png";
 
         const SCENARIOS = {
-            cardiac:  "LDL:165 HDL:32 BloodPressure:135",
+            cardiac:  "LDL:165 HDL:32 BP_Systolic:135 BP_Diastolic:88",
             diabetes: "Glucose:155 Insulin:1.2 BMI:33.6 SkinThickness:35 DiabetesPedigreeFunction:0.627",
-            kidney:   "Creatinine:2.1 BloodPressure:145",
-            normal:   "Glucose:90 Insulin:12 BMI:22 BloodPressure:115 LDL:85 HDL:55",
-            mixed:    "LDL:170 HDL:33 Glucose:148 BloodPressure:138 BMI:30.2 Insulin:0 SkinThickness:35"
+            kidney:   "Creatinine:2.1 BP_Systolic:148 BP_Diastolic:92",
+            normal:   "Glucose:90 Insulin:12 BMI:22 BP_Systolic:115 BP_Diastolic:75 LDL:85 HDL:55",
+            mixed:    "LDL:170 HDL:33 Glucose:148 BP_Systolic:142 BP_Diastolic:94 BMI:30.2 Insulin:0 SkinThickness:35"
         };
 
         let conversationHistory = [];
@@ -510,9 +539,17 @@
             sendMessage();
         }
 
+        const KNOWN_INDICATORS = [
+            "Glucose", "Insulin", "BMI",
+            "BP_Systolic", "BP_Diastolic",
+            "LDL", "HDL", "Creatinine",
+            "SkinThickness", "DiabetesPedigreeFunction"
+        ];
+
         function parseIndicators(text) {
             const indicators = {};
-            // Try JSON
+
+            // 1. Try JSON first
             try {
                 const parsed = JSON.parse(text);
                 if (typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -522,12 +559,29 @@
                     if (Object.keys(indicators).length > 0) return indicators;
                 }
             } catch {}
-            // key:value or key=value
-            const pattern = /(\w+)\s*[:=]\s*([\d.]+)/g;
+
+            // 2. "key:value" or "key=value" (original behavior)
+            const strictPattern = /(\w+)\s*[:=]\s*([\d.]+)/g;
             let match;
-            while ((match = pattern.exec(text)) !== null) {
+            while ((match = strictPattern.exec(text)) !== null) {
                 indicators[match[1]] = parseFloat(match[2]);
             }
+
+            // 3. "IndicatorName value" — known indicator names followed by a number (no separator)
+            //    e.g. "glucose 155" or "LDL 165 mg/dL"
+            for (const name of KNOWN_INDICATORS) {
+                if (name in indicators) continue; // already captured by strict pattern
+                const loose = new RegExp(
+                    "\\b" + name + "\\b\\s*[:=]?\\s*([\\d]+(?:\\.[\\d]+)?)",
+                    "i"
+                );
+                const m = text.match(loose);
+                if (m) {
+                    // Use the canonical casing from KNOWN_INDICATORS
+                    indicators[name] = parseFloat(m[1]);
+                }
+            }
+
             return Object.keys(indicators).length > 0 ? indicators : null;
         }
 
@@ -660,9 +714,15 @@
                     </div>`;
             }
 
-            const hasDanger = ruleOutput.indicators.some(i => i.color === "red");
-            if (hasDanger) {
-                html += '<div class="vinmec-card">Bạn nên đặt lịch khám chuyên khoa tại Vinmec</div>';
+            if (ruleOutput.triage === "urgent") {
+                const names = (ruleOutput.critical_indicators || []).join(", ");
+                html += `<div class="triage-urgent">
+                    <span class="triage-icon">⚠️</span>
+                    <span>Có chỉ số ở mức <strong>NGUY HIỂM</strong>${names ? ': ' + escapeHtml(names) : ''}. Vui lòng đặt lịch khám chuyên khoa ngay.</span>
+                </div>
+                <div class="vinmec-card">Đặt lịch khám chuyên khoa tại Vinmec ngay hôm nay</div>`;
+            } else if (ruleOutput.triage === "monitor") {
+                html += `<div class="triage-monitor">Một số chỉ số cần theo dõi. Nên tái khám trong thời gian tới.</div>`;
             }
 
             card.innerHTML = html;
