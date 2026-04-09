@@ -1,14 +1,15 @@
+import base64
 import json
 import os
 from collections import OrderedDict
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
 
 from .rules import analyze, INDICATORS
@@ -38,10 +39,12 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 # Load system prompt
 SYSTEM_PROMPT = (PROMPTS_DIR / "system.txt").read_text(encoding="utf-8")
+OCR_SYSTEM_PROMPT = (PROMPTS_DIR / "ocr.txt").read_text(encoding="utf-8")
 
 # OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 LLM_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+VISION_MODEL = os.getenv("OPENAI_VISION_MODEL", "gpt-4.1-mini")
 
 # LRU cache for repeated prompts — capped to avoid memory leak
 _LLM_CACHE_MAX = 500
@@ -82,6 +85,69 @@ def analyze_indicators(req: AnalyzeRequest):
         return analyze(req.indicators, age=req.age, smoking=req.smoking)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.post("/api/ocr")
+async def ocr_extract(image: UploadFile = File(...)):
+    """Extract health indicators from a lab test image using GPT vision."""
+    # Validate file type
+    if not image.content_type or not image.content_type.startswith("image/"):
+        raise HTTPException(status_code=422, detail="File không phải hình ảnh. Vui lòng chọn file PNG, JPG hoặc JPEG.")
+
+    # Read and validate size (max 10MB)
+    image_bytes = await image.read()
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File quá lớn. Vui lòng chọn file dưới 10MB.")
+
+    # Encode to base64 data URL
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    data_url = f"data:{image.content_type};base64,{b64}"
+
+    # Call GPT vision
+    try:
+        vision_response = client.chat.completions.create(
+            model=VISION_MODEL,
+            messages=[
+                {"role": "system", "content": OCR_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Hãy đọc các chỉ số xét nghiệm từ hình ảnh này và trả về JSON."},
+                        {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
+                    ],
+                },
+            ],
+            temperature=0.0,
+            max_tokens=500,
+        )
+    except OpenAIError as e:
+        raise HTTPException(status_code=502, detail=f"Lỗi kết nối dịch vụ AI: {e}")
+
+    # Parse response — strip markdown fences if present
+    raw_text = vision_response.choices[0].message.content.strip()
+    if raw_text.startswith("```"):
+        raw_text = raw_text.split("\n", 1)[1]
+        raw_text = raw_text.rsplit("```", 1)[0]
+
+    try:
+        extracted = json.loads(raw_text.strip())
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="Không thể đọc chỉ số từ ảnh này. Vui lòng thử ảnh rõ hơn hoặc nhập thủ công.")
+
+    # Filter: keep only known indicators with numeric values
+    valid_keys = set(INDICATORS.keys())
+    extracted = {k: float(v) for k, v in extracted.items() if k in valid_keys and isinstance(v, (int, float))}
+
+    if not extracted:
+        raise HTTPException(status_code=422, detail="Không nhận diện được chỉ số xét nghiệm nào từ ảnh. Vui lòng thử ảnh khác.")
+
+    # Run rule-based analysis
+    try:
+        rule_output = analyze(extracted)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    return {"extracted_indicators": extracted, "rule_output": rule_output}
 
 
 @app.post("/api/chat")
