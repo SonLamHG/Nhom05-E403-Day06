@@ -704,6 +704,60 @@
         .send-btn:disabled { opacity: 0.42; cursor: not-allowed; transform: none; box-shadow: none; }
         .send-btn svg { width: 16px; height: 16px; }
 
+        /* ── UPLOAD BUTTON ─────────────────────────── */
+        .upload-btn {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            border: 1.5px solid var(--border-mid);
+            background: var(--surface-2);
+            color: var(--text-2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+        .upload-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+        .upload-btn svg { width: 16px; height: 16px; }
+
+        /* ── IMAGE PREVIEW BAR ─────────────────────── */
+        .image-preview-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 20px;
+            background: var(--accent-bg);
+            border-top: 1px solid var(--border);
+        }
+        .image-preview-bar img {
+            height: 40px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+        .image-preview-bar .preview-name {
+            font-size: 0.82em;
+            color: var(--text-2);
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .image-preview-bar .preview-remove {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(0,0,0,0.08);
+            color: var(--text-2);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .image-preview-bar .preview-remove:hover { background: var(--danger-bg); color: var(--danger); }
+
         .input-hint {
             font-size: 0.68em;
             color: var(--text-3);
@@ -719,6 +773,7 @@
             .quick-actions { padding: 7px 12px; }
             .input-area { padding: 10px 12px 12px; }
             .input-hint { padding: 3px 12px 6px; }
+            .image-preview-bar { padding: 6px 12px; }
             .header { padding: 0 16px; }
             .header-disclaimer { display: none; }
             .msg-row { max-width: 92%; }
@@ -765,9 +820,23 @@
                     <button class="quick-btn" onclick="sendQuick('Chế độ ăn uống và luyện tập phù hợp với tôi là gì?')">Ăn uống & luyện tập</button>
                 </div>
 
+                <div class="image-preview-bar" id="imagePreviewBar">
+                    <img id="imagePreviewThumb" src="" alt="Preview">
+                    <span class="preview-name" id="imagePreviewName"></span>
+                    <button class="preview-remove" onclick="removeImagePreview()" title="Xóa ảnh">&times;</button>
+                </div>
                 <div class="input-area">
+                    <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
+                    <button class="upload-btn" onclick="document.getElementById('imageInput').click()" title="Upload ảnh xét nghiệm">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                    </button>
                     <textarea id="userInput" rows="1"
-                              placeholder="Nhập chỉ số xét nghiệm (VD: LDL:160 HDL:35) hoặc đặt câu hỏi..."
+                              placeholder="Nhập chỉ số, upload ảnh xét nghiệm, hoặc đặt câu hỏi..."
                               onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
                     <button class="send-btn" id="sendBtn" onclick="sendMessage()" aria-label="Gửi">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -801,6 +870,7 @@
         let conversationHistory = [];
         let lastRuleOutput     = null;
         let hasAnalyzed        = false;
+        let selectedImageFile  = null;
 
         // ── Markdown parser ──────────────────────────
         function renderMarkdown(text) {
@@ -927,6 +997,13 @@
                                 <span>Phát hiện giá trị nguy hiểm và ưu tiên khám ngay</span>
                             </div>
                         </div>
+                        <div class="feature-item">
+                            <span class="feature-item-icon">📷</span>
+                            <div class="feature-item-text">
+                                <strong>OCR ảnh xét nghiệm</strong>
+                                <span>Upload ảnh phiếu kết quả, AI tự đọc chỉ số</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -950,7 +1027,7 @@
                     <div class="chat-empty-inner">
                         <span class="chat-empty-icon">💬</span>
                         <div class="chat-empty-title">Bắt đầu phân tích</div>
-                        <div class="chat-empty-sub">Nhập chỉ số xét nghiệm vào ô bên dưới
+                        <div class="chat-empty-sub">Nhập chỉ số xét nghiệm, upload ảnh phiếu kết quả,
                         hoặc chọn kịch bản demo từ panel bên trái.</div>
                     </div>
                 </div>`;
@@ -1020,10 +1097,113 @@
             return Object.keys(indicators).length > 0 ? indicators : null;
         }
 
+        // ── Image upload handling ─────────────────────
+        function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                alert('Vui lòng chọn file hình ảnh.');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File quá lớn. Vui lòng chọn file dưới 10MB.');
+                return;
+            }
+            selectedImageFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('imagePreviewThumb').src = e.target.result;
+                document.getElementById('imagePreviewName').textContent = file.name;
+                document.getElementById('imagePreviewBar').style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeImagePreview() {
+            selectedImageFile = null;
+            document.getElementById('imageInput').value = '';
+            document.getElementById('imagePreviewBar').style.display = 'none';
+        }
+
         // ── Send message ──────────────────────────────
         async function sendMessage() {
             const input = document.getElementById("userInput");
             const text  = input.value.trim();
+            const sendBtn = document.getElementById("sendBtn");
+
+            // ── OCR image flow ───────────────────────
+            if (selectedImageFile) {
+                const imageFile = selectedImageFile;
+                const fileName  = imageFile.name;
+                removeImagePreview();
+
+                const empty = document.querySelector(".chat-empty");
+                if (empty) empty.remove();
+
+                input.value = "";
+                input.style.height = 'auto';
+                addUserMessage("📷 " + fileName + (text ? "\n" + text : ""));
+
+                sendBtn.disabled = true;
+                showTyping();
+
+                try {
+                    const formData = new FormData();
+                    formData.append("image", imageFile);
+
+                    const ocrResp = await fetch("/api/ocr", {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    if (!ocrResp.ok) {
+                        const err = await ocrResp.json();
+                        throw new Error(err.detail || "Không đọc được chỉ số từ ảnh");
+                    }
+
+                    const ocrData = await ocrResp.json();
+                    lastRuleOutput = ocrData.rule_output;
+                    showRuleCard(lastRuleOutput);
+
+                    const extractedText = Object.entries(ocrData.extracted_indicators)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(", ");
+                    const userMsg = `Tôi vừa upload ảnh xét nghiệm. Các chỉ số đọc được: ${extractedText}`;
+                    conversationHistory.push({ role: "user", content: userMsg });
+
+                    const chatResp = await fetch("/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            messages: conversationHistory,
+                            context: { rule_output: lastRuleOutput },
+                        }),
+                    });
+                    const chatData = await chatResp.json();
+                    removeTyping();
+
+                    if (chatData.reply) {
+                        addBotMessage(chatData.reply);
+                        conversationHistory.push({ role: "assistant", content: chatData.reply });
+                    }
+
+                    if (!hasAnalyzed) {
+                        hasAnalyzed = true;
+                        input.placeholder = "Đặt câu hỏi về kết quả xét nghiệm...";
+                    }
+                    document.getElementById("quickActions").classList.add("visible");
+
+                } catch (err) {
+                    removeTyping();
+                    addBotMessage("Xin lỗi, không thể đọc chỉ số từ ảnh. Vui lòng thử lại hoặc nhập thủ công.\n(`" + err.message + "`)");
+                } finally {
+                    sendBtn.disabled = false;
+                    input.focus();
+                }
+                return;
+            }
+
+            // ── Text flow (existing) ─────────────────
             if (!text) return;
 
             // Clear empty state on first message
@@ -1034,7 +1214,6 @@
             input.style.height = 'auto';
             addUserMessage(text);
 
-            const sendBtn = document.getElementById("sendBtn");
             sendBtn.disabled = true;
 
             const indicators = parseIndicators(text);
