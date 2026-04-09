@@ -546,6 +546,51 @@
             padding: 0 4px;
         }
 
+        .msg-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 4px;
+        }
+
+        .feedback-btn {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-2);
+            border-radius: 999px;
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            font-size: 0.92em;
+            line-height: 1;
+            cursor: pointer;
+            transition: 0.15s ease;
+        }
+
+        .feedback-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent-dark);
+        }
+
+        .feedback-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .feedback-btn.active {
+            background: var(--accent-bg);
+            border-color: var(--accent);
+            color: var(--accent-dark);
+        }
+
+        .feedback-status {
+            font-size: 0.68em;
+            color: var(--text-3);
+        }
+
         /* ── BUBBLES ─────────────────────────────────── */
         .bubble {
             padding: 11px 16px;
@@ -871,6 +916,14 @@
         let lastRuleOutput     = null;
         let hasAnalyzed        = false;
         let selectedImageFile  = null;
+        let feedbackCounter    = 0;
+        const feedbackStore    = new Map();
+        const sessionId        = (() => {
+            if (window.crypto && typeof window.crypto.randomUUID === "function") {
+                return window.crypto.randomUUID();
+            }
+            return `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        })();
 
         // ── Markdown parser ──────────────────────────
         function renderMarkdown(text) {
@@ -955,6 +1008,56 @@
             const d = document.createElement("div");
             d.textContent = text;
             return d.innerHTML;
+        }
+
+        function buildFeedbackPayload(userInput, aiResponse) {
+            if (!userInput || !aiResponse) return null;
+
+            return {
+                session_id: sessionId,
+                user_input: userInput,
+                ai_response: aiResponse
+            };
+        }
+
+        async function submitFeedback(feedbackId, correctionType, button) {
+            const payload = feedbackStore.get(feedbackId);
+            if (!payload) return;
+
+            const actionWrap = button.closest(".msg-actions");
+            const statusEl = actionWrap?.querySelector(".feedback-status");
+            const buttons = actionWrap ? Array.from(actionWrap.querySelectorAll(".feedback-btn")) : [];
+
+            buttons.forEach((btn) => { btn.disabled = true; });
+            if (statusEl) statusEl.textContent = "Dang gui...";
+
+            try {
+                const resp = await fetch("/api/feedback/correction", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        ...payload,
+                        correction_type: correctionType
+                    })
+                });
+
+                if (!resp.ok) {
+                    throw new Error("Khong gui duoc feedback");
+                }
+
+                buttons.forEach((btn) => { btn.classList.remove("active"); });
+                if (button) button.classList.add("active");
+
+                if (statusEl) {
+                    statusEl.textContent = correctionType === "positive"
+                        ? "Da ghi nhan like. Ban co the doi lua chon."
+                        : "Da ghi nhan dislike. Ban co the doi lua chon.";
+                }
+            } catch (err) {
+                if (statusEl) statusEl.textContent = err.message || "Gui feedback that bai";
+            } finally {
+                buttons.forEach((btn) => { btn.disabled = false; });
+            }
         }
 
         function scrollBottom() {
@@ -1226,7 +1329,7 @@
                     removeTyping();
 
                     if (chatData.reply) {
-                        addBotMessage(chatData.reply);
+                        addBotMessage(chatData.reply, buildFeedbackPayload(userMsg, chatData.reply));
                         conversationHistory.push({ role: "assistant", content: chatData.reply });
                     }
 
@@ -1292,7 +1395,7 @@
                     removeTyping();
 
                     if (chatData.reply) {
-                        addBotMessage(chatData.reply);
+                        addBotMessage(chatData.reply, buildFeedbackPayload(text, chatData.reply));
                         conversationHistory.push({ role: "assistant", content: chatData.reply });
                     }
 
@@ -1325,7 +1428,7 @@
                     removeTyping();
 
                     if (chatData.reply) {
-                        addBotMessage(chatData.reply);
+                        addBotMessage(chatData.reply, buildFeedbackPayload(text, chatData.reply));
                         conversationHistory.push({ role: "assistant", content: chatData.reply });
                     }
                 }
@@ -1352,10 +1455,23 @@
             scrollBottom();
         }
 
-        function addBotMessage(text) {
+        function addBotMessage(text, feedbackPayload = null) {
             const c   = document.getElementById("chatContainer");
             const row = document.createElement("div");
             row.className = "msg-row bot";
+            let actionsHtml = "";
+
+            if (feedbackPayload) {
+                const feedbackId = `fb-${++feedbackCounter}`;
+                feedbackStore.set(feedbackId, feedbackPayload);
+                actionsHtml = `
+                    <div class="msg-actions">
+                        <button class="feedback-btn" onclick="submitFeedback('${feedbackId}', 'positive', this)" aria-label="Like" title="Like">👍</button>
+                        <button class="feedback-btn" onclick="submitFeedback('${feedbackId}', 'negative', this)" aria-label="Dislike" title="Dislike">👎</button>
+                        <span class="feedback-status"></span>
+                    </div>`;
+            }
+
             row.innerHTML = `
                 <div class="msg-avatar-wrap">
                     <div class="msg-avatar">AI</div>
@@ -1363,6 +1479,7 @@
                 <div class="msg-content">
                     <div class="bubble">${renderMarkdown(text)}</div>
                     <span class="msg-time">${nowHHMM()}</span>
+                    ${actionsHtml}
                 </div>`;
             c.appendChild(row);
             scrollBottom();
