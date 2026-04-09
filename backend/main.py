@@ -1,5 +1,6 @@
 import json
 import os
+from collections import OrderedDict
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,11 +17,20 @@ load_dotenv()
 
 app = FastAPI(title="VinBiocare AI", version="2.0.0")
 
+_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000"
+    ).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
@@ -33,8 +43,9 @@ SYSTEM_PROMPT = (PROMPTS_DIR / "system.txt").read_text(encoding="utf-8")
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 LLM_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-# Cache for repeated prompts during demo
-_llm_cache: dict[str, str] = {}
+# LRU cache for repeated prompts — capped to avoid memory leak
+_LLM_CACHE_MAX = 500
+_llm_cache: OrderedDict[str, str] = OrderedDict()
 
 
 # --- Models ---
@@ -53,6 +64,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     context: dict | None = None
+    analysis_history: list[dict] | None = None
 
 
 # --- Endpoints ---
@@ -66,7 +78,10 @@ def get_indicators():
 @app.post("/api/analyze")
 def analyze_indicators(req: AnalyzeRequest):
     """Analyze health indicators using rule-based engine (no LLM)."""
-    return analyze(req.indicators, age=req.age, smoking=req.smoking)
+    try:
+        return analyze(req.indicators, age=req.age, smoking=req.smoking)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @app.post("/api/chat")
@@ -90,6 +105,19 @@ def chat(req: ChatRequest):
         )
         openai_messages.append({"role": "system", "content": context_msg})
 
+    # If analysis history has 2+ entries, inject comparison context
+    if req.analysis_history and len(req.analysis_history) >= 2:
+        last_two = req.analysis_history[-2:]
+        comparison_msg = (
+            f"Người dùng muốn so sánh 2 kết quả xét nghiệm gần nhất:\n\n"
+            f"**Kết quả lần {len(req.analysis_history) - 1}:**\n"
+            f"```json\n{json.dumps(last_two[0], ensure_ascii=False, indent=2)}\n```\n\n"
+            f"**Kết quả lần {len(req.analysis_history)}:**\n"
+            f"```json\n{json.dumps(last_two[1], ensure_ascii=False, indent=2)}\n```\n\n"
+            f"Hãy so sánh 2 kết quả trên, chỉ ra các chỉ số thay đổi (tốt hơn/xấu hơn/không đổi) và đưa ra nhận xét tổng thể."
+        )
+        openai_messages.append({"role": "system", "content": comparison_msg})
+
     # Add conversation history
     for msg in req.messages:
         openai_messages.append({"role": msg.role, "content": msg.content})
@@ -109,6 +137,8 @@ def chat(req: ChatRequest):
 
     reply = response.choices[0].message.content
     _llm_cache[cache_key] = reply
+    if len(_llm_cache) > _LLM_CACHE_MAX:
+        _llm_cache.popitem(last=False)  # evict oldest entry
 
     return {"reply": reply, "rule_output": rule_output}
 

@@ -35,16 +35,28 @@
     "risk_low": "Suy dinh dưỡng, loãng xương, suy giảm hệ miễn dịch",
     "bidirectional": true
   },
-  "BloodPressure": {
+  "BP_Systolic": {
     "name": "Huyết áp tâm thu",
     "unit": "mmHg",
     "normal_min": 90,
     "normal_max": 120,
     "warning_max": 140,
     "warning_min": 80,
-    "description": "Áp lực máu lên thành động mạch",
-    "risk_high": "Tăng huyết áp (Hypertension): gây áp lực lên thành mạch, dẫn đến suy thận, suy tim, tai biến mạch máu não",
-    "risk_low": "Hạ huyết áp: gây thiếu máu nuôi dưỡng các cơ quan, đặc biệt là não",
+    "description": "Áp lực máu khi tim co bóp (huyết áp tâm thu)",
+    "risk_high": "Tăng huyết áp tâm thu (Systolic Hypertension): tăng nguy cơ đột quỵ, suy tim, suy thận",
+    "risk_low": "Hạ huyết áp tâm thu: giảm tưới máu não và các cơ quan, gây chóng mặt, ngất xỉu",
+    "bidirectional": true
+  },
+  "BP_Diastolic": {
+    "name": "Huyết áp tâm trương",
+    "unit": "mmHg",
+    "normal_min": 60,
+    "normal_max": 80,
+    "warning_max": 90,
+    "warning_min": 50,
+    "description": "Áp lực máu khi tim nghỉ giữa hai nhịp đập (huyết áp tâm trương)",
+    "risk_high": "Tăng huyết áp tâm trương: gây xơ cứng mạch máu, tăng nguy cơ tim mạch",
+    "risk_low": "Hạ huyết áp tâm trương: giảm tưới máu cơ quan, đặc biệt nguy hiểm cho tim",
     "bidirectional": true
   },
   "SkinThickness": {
