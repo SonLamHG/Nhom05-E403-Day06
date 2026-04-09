@@ -1,0 +1,100 @@
+{
+  "Glucose": {
+    "name": "Glucose (Đường huyết)",
+    "unit": "mg/dL",
+    "normal_min": 70,
+    "normal_max": 100,
+    "warning_max": 126,
+    "warning_min": 54,
+    "description": "Chỉ số đường huyết lúc đói",
+    "risk_high": "Tiền tiểu đường hoặc tiểu đường (Diabetes Mellitus) khi >126 mg/dL",
+    "risk_low": "Hạ đường huyết (Hypoglycemia): gây chóng mặt, run rẩy, vã mồ hôi, ngất xỉu",
+    "bidirectional": true
+  },
+  "Insulin": {
+    "name": "Insulin",
+    "unit": "μU/mL",
+    "normal_min": 2.6,
+    "normal_max": 24.9,
+    "warning_max": 50,
+    "warning_min": 1.0,
+    "description": "Hormone do tuyến tụy tiết ra để điều chỉnh đường huyết",
+    "risk_high": "Kháng insulin (cơ thể không sử dụng hiệu quả), có thể liên quan béo phì hoặc u tuyến tụy (Insulinoma)",
+    "risk_low": "Tiểu đường tuýp 1 (tuyến tụy không sản xuất insulin) hoặc tuýp 2 giai đoạn muộn (tuyến tụy suy kiệt)",
+    "bidirectional": true
+  },
+  "BMI": {
+    "name": "BMI (Chỉ số khối cơ thể)",
+    "unit": "kg/m²",
+    "normal_min": 18.5,
+    "normal_max": 24.9,
+    "warning_max": 29.9,
+    "warning_min": 16.0,
+    "description": "Chỉ số đánh giá cân nặng so với chiều cao",
+    "risk_high": "Béo phì: tăng nguy cơ tim mạch, xơ vữa động mạch, hội chứng chuyển hóa, ngưng thở khi ngủ",
+    "risk_low": "Suy dinh dưỡng, loãng xương, suy giảm hệ miễn dịch",
+    "bidirectional": true
+  },
+  "BloodPressure": {
+    "name": "Huyết áp tâm thu",
+    "unit": "mmHg",
+    "normal_min": 90,
+    "normal_max": 120,
+    "warning_max": 140,
+    "warning_min": 80,
+    "description": "Áp lực máu lên thành động mạch",
+    "risk_high": "Tăng huyết áp (Hypertension): gây áp lực lên thành mạch, dẫn đến suy thận, suy tim, tai biến mạch máu não",
+    "risk_low": "Hạ huyết áp: gây thiếu máu nuôi dưỡng các cơ quan, đặc biệt là não",
+    "bidirectional": true
+  },
+  "SkinThickness": {
+    "name": "Độ dày nếp gấp da",
+    "unit": "mm",
+    "normal_min": 10,
+    "normal_max": 25,
+    "warning_max": 35,
+    "warning_min": 5,
+    "description": "Đo lượng mỡ dưới da (Triceps skin fold)",
+    "risk_high": "Béo phì khu trú, tỷ lệ thuận với nguy cơ tiểu đường tuýp 2",
+    "risk_low": "Hội chứng teo mỡ (Lipodystrophy): rối loạn phân bố mỡ trong cơ thể",
+    "bidirectional": true
+  },
+  "DiabetesPedigreeFunction": {
+    "name": "Phả hệ tiểu đường (DPF)",
+    "unit": "",
+    "normal_min": 0,
+    "normal_max": 0.5,
+    "warning_max": 0.8,
+    "description": "Chỉ số đánh giá nguy cơ di truyền tiểu đường từ gia đình",
+    "risk_high": "Yếu tố di truyền mạnh – tăng khả năng bùng phát tiểu đường tuýp 2 nếu lối sống không lành mạnh",
+    "risk": "Yếu tố di truyền mạnh từ gia đình"
+  },
+  "LDL": {
+    "name": "LDL Cholesterol",
+    "unit": "mg/dL",
+    "normal_min": 0,
+    "normal_max": 100,
+    "warning_max": 130,
+    "description": "Cholesterol xấu (Low-Density Lipoprotein)",
+    "risk": "Nguy cơ xơ vữa động mạch và bệnh tim mạch"
+  },
+  "HDL": {
+    "name": "HDL Cholesterol",
+    "unit": "mg/dL",
+    "normal_min": 40,
+    "normal_max": 999,
+    "warning_min": 35,
+    "description": "Cholesterol tốt (High-Density Lipoprotein)",
+    "risk": "HDL thấp làm tăng nguy cơ tim mạch",
+    "inverse": true
+  },
+  "Creatinine": {
+    "name": "Creatinine",
+    "unit": "mg/dL",
+    "normal_min": 0.6,
+    "normal_max": 1.2,
+    "warning_max": 1.5,
+    "description": "Chỉ số đánh giá chức năng thận",
+    "risk": "Nguy cơ suy giảm chức năng thận"
+  }
+}
