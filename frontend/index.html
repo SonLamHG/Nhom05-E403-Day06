@@ -591,6 +591,138 @@
             color: var(--text-3);
         }
 
+        .feedback-btn.report {
+            width: auto;
+            padding: 0 10px;
+            font-size: 0.74em;
+            font-weight: 700;
+        }
+
+        .msg-tools {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .response-state {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            box-shadow: var(--sh-sm);
+        }
+
+        .response-state.happy {
+            background: var(--success-bg);
+            border-color: #86efac;
+        }
+
+        .response-state.low {
+            background: var(--warning-bg);
+            border-color: #fcd34d;
+        }
+
+        .response-state-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .response-state-title {
+            font-size: 0.78em;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .confidence-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 0.68em;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .response-state.happy .confidence-pill {
+            background: rgba(5, 150, 105, 0.14);
+            color: #065f46;
+        }
+
+        .response-state.low .confidence-pill {
+            background: rgba(217, 119, 6, 0.14);
+            color: #92400e;
+        }
+
+        .response-state-copy {
+            font-size: 0.76em;
+            color: var(--text-2);
+            line-height: 1.55;
+        }
+
+        .response-state-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .response-cta {
+            border: none;
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 0.74em;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            transition: 0.15s ease;
+        }
+
+        .response-state.happy .response-cta {
+            background: var(--success);
+            color: white;
+        }
+
+        .response-state.low .response-cta {
+            background: var(--warning);
+            color: white;
+        }
+
+        .response-cta:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--sh-sm);
+        }
+
+        .response-state-status {
+            font-size: 0.68em;
+            color: var(--text-2);
+        }
+
+        .confidence-banner {
+            border-radius: var(--r-sm);
+            padding: 10px 13px;
+            font-size: 0.8em;
+            font-weight: 600;
+            line-height: 1.45;
+            animation: fadeUp 0.25s ease both;
+        }
+
+        .confidence-banner.high {
+            background: var(--success-bg);
+            border: 1.5px solid #86efac;
+            color: #065f46;
+        }
+
+        .confidence-banner.low {
+            background: var(--warning-bg);
+            border: 1.5px solid #fcd34d;
+            color: #92400e;
+        }
+
         /* ── BUBBLES ─────────────────────────────────── */
         .bubble {
             padding: 11px 16px;
@@ -1010,14 +1142,118 @@
             return d.innerHTML;
         }
 
-        function buildFeedbackPayload(userInput, aiResponse) {
+        function getFlowState(ruleOutput) {
+            if (!ruleOutput) return null;
+            return ruleOutput.low_confidence ? "low_confidence" : "happy";
+        }
+
+        function formatConfidence(confidence) {
+            if (typeof confidence !== "number" || Number.isNaN(confidence)) return "";
+            return `${Math.round(confidence * 100)}%`;
+        }
+
+        function buildShareText(userInput, aiResponse, ruleOutput = null) {
+            const lines = [
+                "Tom tat tu VinBiocare AI",
+                `Cau hoi/du lieu: ${userInput}`,
+            ];
+
+            if (ruleOutput?.summary) {
+                lines.push(`Tom tat phan tich: ${ruleOutput.summary}`);
+            }
+
+            if (typeof ruleOutput?.confidence_overall === "number") {
+                lines.push(`Do tin cay phan tich: ${formatConfidence(ruleOutput.confidence_overall)}`);
+            }
+
+            lines.push(`Giai thich AI: ${aiResponse}`);
+            return lines.join("\n");
+        }
+
+        function buildFeedbackPayload(userInput, aiResponse, ruleOutput = null) {
             if (!userInput || !aiResponse) return null;
 
             return {
                 session_id: sessionId,
                 user_input: userInput,
-                ai_response: aiResponse
+                ai_response: aiResponse,
+                flow_state: getFlowState(ruleOutput),
+                confidence: typeof ruleOutput?.confidence_overall === "number"
+                    ? ruleOutput.confidence_overall
+                    : null,
+                source: ruleOutput ? "rule_output_chat" : "free_chat",
+                has_structured_context: Boolean(ruleOutput),
+                share_text: buildShareText(userInput, aiResponse, ruleOutput),
             };
+        }
+
+        async function postFeedback(payload, correctionType, extra = {}) {
+            const body = {
+                session_id: payload.session_id,
+                user_input: payload.user_input,
+                ai_response: payload.ai_response,
+                correction_type: correctionType,
+                flow_state: payload.flow_state,
+                confidence: payload.confidence,
+                source: payload.source,
+                ...extra,
+            };
+
+            const resp = await fetch("/api/feedback/correction", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            if (!resp.ok) {
+                throw new Error("Khong gui duoc feedback");
+            }
+
+            return resp.json();
+        }
+
+        function getResponseStateConfig(payload) {
+            if (!payload?.has_structured_context) return null;
+
+            const confidenceText = formatConfidence(payload.confidence);
+            if (payload.flow_state === "low_confidence") {
+                return {
+                    kind: "low",
+                    title: "Giai thich nay can xac nhan bac si",
+                    copy: "He thong phat hien do chac chan chua cao. Ban nen xac nhan them voi bac si truoc khi dua ra quyet dinh.",
+                    pill: confidenceText ? `Do tin cay ${confidenceText}` : "Can xac nhan them",
+                    ctaLabel: "Chat voi bac si ngay 30 phut",
+                    ctaAction: "requestDoctorReview",
+                };
+            }
+
+            return {
+                kind: "happy",
+                title: "Phan tich dang o trang thai tu tin",
+                copy: "Ban co the luu nhanh phan giai thich nay de chia se voi bac si o buoc tham van tiep theo.",
+                pill: confidenceText ? `Do tin cay ${confidenceText}` : "Do tin cay tot",
+                ctaLabel: "Luu de chia se bac si",
+                ctaAction: "saveForDoctor",
+            };
+        }
+
+        function renderResponseState(feedbackId, payload) {
+            const config = getResponseStateConfig(payload);
+            if (!config) return "";
+
+            return `
+                <div class="response-state ${config.kind}">
+                    <div class="response-state-head">
+                        <span class="response-state-title">${escapeHtml(config.title)}</span>
+                        <span class="confidence-pill">${escapeHtml(config.pill)}</span>
+                    </div>
+                    <div class="response-state-copy">${escapeHtml(config.copy)}</div>
+                    <div class="response-state-actions">
+                        <button class="response-cta"
+                                onclick="${config.ctaAction}('${feedbackId}', this)">${escapeHtml(config.ctaLabel)}</button>
+                        <span class="response-state-status"></span>
+                    </div>
+                </div>`;
         }
 
         async function submitFeedback(feedbackId, correctionType, button) {
@@ -1032,18 +1268,12 @@
             if (statusEl) statusEl.textContent = "Dang gui...";
 
             try {
-                const resp = await fetch("/api/feedback/correction", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        ...payload,
-                        correction_type: correctionType
-                    })
+                const result = await postFeedback(payload, correctionType, {
+                    needs_review: correctionType === "negative",
+                    feedback_reason: correctionType === "negative"
+                        ? "user_disliked_response"
+                        : null,
                 });
-
-                if (!resp.ok) {
-                    throw new Error("Khong gui duoc feedback");
-                }
 
                 buttons.forEach((btn) => { btn.classList.remove("active"); });
                 if (button) button.classList.add("active");
@@ -1051,10 +1281,106 @@
                 if (statusEl) {
                     statusEl.textContent = correctionType === "positive"
                         ? "Da ghi nhan like. Ban co the doi lua chon."
-                        : "Da ghi nhan dislike. Ban co the doi lua chon.";
+                        : (result.queued_for_review
+                            ? "Da ghi nhan dislike. Phan hoi nay da vao review queue."
+                            : "Da ghi nhan dislike. Ban co the doi lua chon.");
                 }
             } catch (err) {
                 if (statusEl) statusEl.textContent = err.message || "Gui feedback that bai";
+            } finally {
+                buttons.forEach((btn) => { btn.disabled = false; });
+            }
+        }
+
+        async function requestDoctorReview(feedbackId, button) {
+            const payload = feedbackStore.get(feedbackId);
+            if (!payload) return;
+
+            const wrap = button.closest(".response-state");
+            const statusEl = wrap?.querySelector(".response-state-status");
+            button.disabled = true;
+            if (statusEl) statusEl.textContent = "Dang chuyen yeu cau...";
+
+            try {
+                const result = await postFeedback(payload, "doctor_review", {
+                    needs_review: true,
+                    feedback_reason: "doctor_confirmation_requested",
+                });
+
+                if (statusEl) {
+                    statusEl.textContent = result.queued_for_review
+                        ? "Da dua ca nay vao review queue de bac si xac nhan."
+                        : "Da ghi nhan yeu cau xac nhan.";
+                }
+            } catch (err) {
+                if (statusEl) statusEl.textContent = err.message || "Khong gui duoc yeu cau.";
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function saveForDoctor(feedbackId, button) {
+            const payload = feedbackStore.get(feedbackId);
+            if (!payload) return;
+
+            const wrap = button.closest(".response-state");
+            const statusEl = wrap?.querySelector(".response-state-status");
+            if (statusEl) statusEl.textContent = "";
+
+            try {
+                if (navigator.share) {
+                    await navigator.share({
+                        title: "VinBiocare AI",
+                        text: payload.share_text || payload.ai_response,
+                    });
+                    if (statusEl) statusEl.textContent = "Da mo chia se de gui cho bac si.";
+                    return;
+                }
+
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(payload.share_text || payload.ai_response);
+                    if (statusEl) statusEl.textContent = "Da sao chep noi dung de chia se voi bac si.";
+                    return;
+                }
+
+                if (statusEl) statusEl.textContent = "Trinh duyet hien tai chua ho tro chia se.";
+            } catch (err) {
+                if (err?.name === "AbortError") {
+                    if (statusEl) statusEl.textContent = "";
+                    return;
+                }
+                if (statusEl) statusEl.textContent = err.message || "Khong the luu noi dung nay.";
+            }
+        }
+
+        async function reportIncorrectResponse(feedbackId, button) {
+            const payload = feedbackStore.get(feedbackId);
+            if (!payload) return;
+
+            const actionWrap = button.closest(".msg-actions");
+            const statusEl = actionWrap?.querySelector(".feedback-status");
+            const buttons = actionWrap ? Array.from(actionWrap.querySelectorAll(".feedback-btn")) : [];
+
+            buttons.forEach((btn) => { btn.disabled = true; });
+            if (statusEl) statusEl.textContent = "Dang dua vao review queue...";
+
+            try {
+                const result = await postFeedback(payload, "negative", {
+                    needs_review: true,
+                    feedback_reason: "user_reported_incorrect_explanation",
+                    flow_state: "failure",
+                });
+
+                buttons.forEach((btn) => { btn.classList.remove("active"); });
+                if (button) button.classList.add("active");
+
+                if (statusEl) {
+                    statusEl.textContent = result.queued_for_review
+                        ? "Da danh dau giai thich nay la khong dung. Ca nay da vao review queue."
+                        : "Da ghi nhan bao loi.";
+                }
+            } catch (err) {
+                if (statusEl) statusEl.textContent = err.message || "Bao loi that bai";
             } finally {
                 buttons.forEach((btn) => { btn.disabled = false; });
             }
@@ -1329,7 +1655,7 @@
                     removeTyping();
 
                     if (chatData.reply) {
-                        addBotMessage(chatData.reply, buildFeedbackPayload(userMsg, chatData.reply));
+                        addBotMessage(chatData.reply, buildFeedbackPayload(userMsg, chatData.reply, lastRuleOutput));
                         conversationHistory.push({ role: "assistant", content: chatData.reply });
                     }
 
@@ -1395,7 +1721,7 @@
                     removeTyping();
 
                     if (chatData.reply) {
-                        addBotMessage(chatData.reply, buildFeedbackPayload(text, chatData.reply));
+                        addBotMessage(chatData.reply, buildFeedbackPayload(text, chatData.reply, lastRuleOutput));
                         conversationHistory.push({ role: "assistant", content: chatData.reply });
                     }
 
@@ -1428,7 +1754,7 @@
                     removeTyping();
 
                     if (chatData.reply) {
-                        addBotMessage(chatData.reply, buildFeedbackPayload(text, chatData.reply));
+                        addBotMessage(chatData.reply, buildFeedbackPayload(text, chatData.reply, lastRuleOutput));
                         conversationHistory.push({ role: "assistant", content: chatData.reply });
                     }
                 }
@@ -1460,14 +1786,17 @@
             const row = document.createElement("div");
             row.className = "msg-row bot";
             let actionsHtml = "";
+            let stateHtml = "";
 
             if (feedbackPayload) {
                 const feedbackId = `fb-${++feedbackCounter}`;
                 feedbackStore.set(feedbackId, feedbackPayload);
+                stateHtml = renderResponseState(feedbackId, feedbackPayload);
                 actionsHtml = `
                     <div class="msg-actions">
                         <button class="feedback-btn" onclick="submitFeedback('${feedbackId}', 'positive', this)" aria-label="Like" title="Like">👍</button>
                         <button class="feedback-btn" onclick="submitFeedback('${feedbackId}', 'negative', this)" aria-label="Dislike" title="Dislike">👎</button>
+                        <button class="feedback-btn report" onclick="reportIncorrectResponse('${feedbackId}', this)">Giai thich nay khong dung</button>
                         <span class="feedback-status"></span>
                     </div>`;
             }
@@ -1479,7 +1808,10 @@
                 <div class="msg-content">
                     <div class="bubble">${renderMarkdown(text)}</div>
                     <span class="msg-time">${nowHHMM()}</span>
-                    ${actionsHtml}
+                    <div class="msg-tools">
+                        ${stateHtml}
+                        ${actionsHtml}
+                    </div>
                 </div>`;
             c.appendChild(row);
             scrollBottom();
@@ -1538,6 +1870,17 @@
             const sidebar = document.getElementById("sidebarInner");
             sidebar.innerHTML = ''; // clear welcome
 
+            if (typeof ruleOutput.confidence_overall === "number") {
+                const confidenceBanner = document.createElement("div");
+                const confidenceClass = ruleOutput.low_confidence ? "low" : "high";
+                const confidenceText = formatConfidence(ruleOutput.confidence_overall);
+                confidenceBanner.className = `confidence-banner ${confidenceClass}`;
+                confidenceBanner.textContent = ruleOutput.low_confidence
+                    ? `Do chac chan hien tai o muc ${confidenceText || "thap"}. Nen xac nhan them voi bac si truoc khi dua ra quyet dinh.`
+                    : `Do chac chan phan tich dat ${confidenceText || "tot"}. Ban co the dung ket qua nay de trao doi tiep voi bac si.`;
+                sidebar.appendChild(confidenceBanner);
+            }
+
             // Triage banner at top of sidebar
             if (ruleOutput.triage === "urgent" || ruleOutput.triage === "monitor") {
                 const banner = document.createElement("div");
@@ -1587,6 +1930,9 @@
                                     <div class="ind-val">${ind.value}${ind.unit ? ' ' + ind.unit : ''}</div>
                                     ${ind.reference
                                         ? `<div class="ind-ref">Tham chiếu: ${escapeHtml(ind.reference)}</div>`
+                                        : ''}
+                                    ${typeof ind.confidence === "number"
+                                        ? `<div class="ind-ref">Do tin cay: ${escapeHtml(formatConfidence(ind.confidence))}</div>`
                                         : ''}
                                 </div>
                                 <span class="ind-status ${ind.color}">${escapeHtml(ind.status)}</span>

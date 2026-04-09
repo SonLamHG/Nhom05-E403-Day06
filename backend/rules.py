@@ -367,10 +367,16 @@ def analyze(data: dict, age: int | None = None, smoking: bool = False) -> dict:
     else:
         triage = "ok"
 
+    # Borderline values should trigger a visible caution state in the UI.
+    low_confidence_threshold = 0.75
+
     # compute overall confidence: take the minimum indicator confidence as conservative measure
     confidences = [r.get("confidence", 0.5) for r in results]
     overall_confidence = round(float(min(confidences)) if confidences else 0.5, 2)
-    low_confidence = overall_confidence < 0.6 or any(c < 0.6 for c in confidences)
+    low_confidence = (
+        overall_confidence < low_confidence_threshold
+        or any(c < low_confidence_threshold for c in confidences)
+    )
 
     return {
         "indicators": results,
