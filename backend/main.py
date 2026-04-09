@@ -2,6 +2,7 @@ import base64
 import json
 import math
 import os
+from datetime import datetime
 from collections import OrderedDict
 from pathlib import Path
 
@@ -37,6 +38,8 @@ app.add_middleware(
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+LOGS_DIR = Path(__file__).parent / "logs"
+CORRECTION_LOG_PATH = LOGS_DIR / "correctionLog.json"
 
 # Load system prompt
 SYSTEM_PROMPT = (PROMPTS_DIR / "system.txt").read_text(encoding="utf-8")
@@ -96,6 +99,23 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     context: dict | None = None
     analysis_history: list[dict] | None = None
+
+
+class FeedbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: str = Field(min_length=1, max_length=200)
+    user_input: str = Field(min_length=1, max_length=5000)
+    ai_response: str = Field(min_length=1, max_length=10000)
+    correction_type: str
+
+    @field_validator("correction_type")
+    @classmethod
+    def validate_correction_type(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"positive", "negative"}:
+            raise ValueError("correction_type must be 'positive' or 'negative'")
+        return normalized
 
 
 # --- Endpoints ---
@@ -176,6 +196,22 @@ async def ocr_extract(image: UploadFile = File(...)):
         raise HTTPException(status_code=422, detail=str(e))
 
     return {"extracted_indicators": extracted, "rule_output": rule_output}
+
+
+@app.post("/api/feedback/correction")
+def log_correction(feedback: FeedbackRequest):
+    """Append user feedback for later review and prompt tuning."""
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    record = {
+        **feedback.model_dump(),
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+    with CORRECTION_LOG_PATH.open("a", encoding="utf-8") as log_file:
+        json.dump(record, log_file, ensure_ascii=False)
+        log_file.write("\n")
+
+    return {"status": "logged"}
 
 
 @app.post("/api/chat")
