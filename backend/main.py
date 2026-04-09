@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from openai import OpenAI
 from pydantic import BaseModel
 
-from rules import analyze, INDICATORS
+from .rules import analyze, INDICATORS
 
 load_dotenv()
 
