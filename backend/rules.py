@@ -270,6 +270,8 @@ def generate_advice(results: list[dict], age: int | None = None, smoking: bool =
     if not advice:
         advice.append("Tiếp tục duy trì lối sống lành mạnh và khám sức khỏe định kỳ.")
 
+    advice.append("Lưu ý: AI chỉ cung cấp thông tin tham khảo, KHÔNG thay thế chẩn đoán của Bác sĩ.")
+
     return advice
 
 
