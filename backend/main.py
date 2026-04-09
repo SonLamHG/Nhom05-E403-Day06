@@ -40,6 +40,7 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 LOGS_DIR = Path(__file__).parent / "logs"
 CORRECTION_LOG_PATH = LOGS_DIR / "correctionLog.json"
+REVIEW_QUEUE_PATH = LOGS_DIR / "reviewQueue.jsonl"
 
 # Load system prompt
 SYSTEM_PROMPT = (PROMPTS_DIR / "system.txt").read_text(encoding="utf-8")
@@ -108,13 +109,29 @@ class FeedbackRequest(BaseModel):
     user_input: str = Field(min_length=1, max_length=5000)
     ai_response: str = Field(min_length=1, max_length=10000)
     correction_type: str
+    feedback_reason: str | None = Field(default=None, max_length=500)
+    flow_state: str | None = Field(default=None, max_length=50)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    source: str | None = Field(default=None, max_length=50)
+    needs_review: bool = False
 
     @field_validator("correction_type")
     @classmethod
     def validate_correction_type(cls, value: str) -> str:
         normalized = value.strip().lower()
-        if normalized not in {"positive", "negative"}:
-            raise ValueError("correction_type must be 'positive' or 'negative'")
+        if normalized not in {"positive", "negative", "doctor_review"}:
+            raise ValueError("correction_type must be 'positive', 'negative', or 'doctor_review'")
+        return normalized
+
+    @field_validator("flow_state")
+    @classmethod
+    def validate_flow_state(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        normalized = value.strip().lower()
+        if normalized not in {"happy", "low_confidence", "failure", "correction"}:
+            raise ValueError("flow_state must be one of: happy, low_confidence, failure, correction")
         return normalized
 
 
@@ -206,12 +223,22 @@ def log_correction(feedback: FeedbackRequest):
         **feedback.model_dump(),
         "created_at": datetime.utcnow().isoformat() + "Z",
     }
+    queued_for_review = feedback.needs_review or feedback.correction_type in {"negative", "doctor_review"}
 
     with CORRECTION_LOG_PATH.open("a", encoding="utf-8") as log_file:
         json.dump(record, log_file, ensure_ascii=False)
         log_file.write("\n")
 
-    return {"status": "logged"}
+    if queued_for_review:
+        review_record = {
+            **record,
+            "review_status": "pending",
+        }
+        with REVIEW_QUEUE_PATH.open("a", encoding="utf-8") as queue_file:
+            json.dump(review_record, queue_file, ensure_ascii=False)
+            queue_file.write("\n")
+
+    return {"status": "logged", "queued_for_review": queued_for_review}
 
 
 @app.post("/api/chat")
