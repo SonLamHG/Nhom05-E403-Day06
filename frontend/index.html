@@ -1066,6 +1066,49 @@
             "SkinThickness", "DiabetesPedigreeFunction"
         ];
 
+        function looksLikeIndicatorInput(text) {
+            if (!text) return false;
+            if (/[:=]/.test(text) || /^\s*[\[{]/.test(text)) return true;
+
+            const lowered = text.toLowerCase();
+            return KNOWN_INDICATORS.some((name) => lowered.includes(name.toLowerCase()));
+        }
+
+        function formatValidationError(err) {
+            if (typeof err === "string") {
+                const cleaned = err
+                    .replace(/^Dữ liệu đầu vào không hợp lệ:\s*/i, "")
+                    .replace(/^Input không hợp lệ:\s*/i, "");
+                const parts = cleaned.split(/\s*;\s*/).filter(Boolean);
+                if (!parts.length) return cleaned || "Input không hợp lệ.";
+                return "Input chưa hợp lệ:\n" + parts.map((part) => `- ${part}`).join("\n");
+            }
+
+            if (Array.isArray(err)) {
+                const items = err.map((item) => {
+                    const loc = Array.isArray(item.loc)
+                        ? item.loc.filter((segment) => segment !== "body").join(".")
+                        : "";
+                    return loc ? `- Trường \`${loc}\`: ${item.msg}` : `- ${item.msg}`;
+                });
+                return "Input chưa hợp lệ:\n" + items.join("\n");
+            }
+
+            return "Input không hợp lệ. Vui lòng kiểm tra lại các trường đã nhập.";
+        }
+
+        async function parseErrorResponse(response, fallbackMessage) {
+            try {
+                const payload = await response.json();
+                if (payload && "detail" in payload) {
+                    return formatValidationError(payload.detail);
+                }
+                return fallbackMessage;
+            } catch {
+                return fallbackMessage;
+            }
+        }
+
         function parseIndicators(text) {
             const indicators = {};
 
@@ -1079,7 +1122,7 @@
                 }
             } catch {}
 
-            const strictPattern = /(\w+)\s*[:=]\s*([\d.]+)/g;
+            const strictPattern = /(\w+)\s*[:=]\s*(-?[\d.]+)/g;
             let match;
             while ((match = strictPattern.exec(text)) !== null) {
                 indicators[match[1]] = parseFloat(match[2]);
@@ -1088,7 +1131,7 @@
             for (const name of KNOWN_INDICATORS) {
                 if (name in indicators) continue;
                 const loose = new RegExp(
-                    "\\b" + name + "\\b\\s*[:=]?\\s*([\\d]+(?:\\.[\\d]+)?)", "i"
+                    "\\b" + name + "\\b\\s*[:=]?\\s*(-?[\\d]+(?:\\.[\\d]+)?)", "i"
                 );
                 const m = text.match(loose);
                 if (m) indicators[name] = parseFloat(m[1]);
@@ -1217,6 +1260,7 @@
             sendBtn.disabled = true;
 
             const indicators = parseIndicators(text);
+            const attemptedIndicatorInput = looksLikeIndicatorInput(text);
 
             try {
                 if (indicators) {
@@ -1226,8 +1270,7 @@
                         body: JSON.stringify({ indicators })
                     });
                     if (!analyzeResp.ok) {
-                        const err = await analyzeResp.json();
-                        throw new Error(err.detail || "Lỗi phân tích chỉ số");
+                        throw new Error(await parseErrorResponse(analyzeResp, "Input không hợp lệ."));
                     }
                     lastRuleOutput = await analyzeResp.json();
 
@@ -1261,6 +1304,12 @@
                     document.getElementById("quickActions").classList.add("visible");
 
                 } else {
+                    if (attemptedIndicatorInput) {
+                        throw new Error(
+                            "Input chưa hợp lệ:\n- Không đọc được chỉ số xét nghiệm từ nội dung bạn nhập\n- Vui lòng kiểm tra đúng tên chỉ số và giá trị số"
+                        );
+                    }
+
                     conversationHistory.push({ role: "user", content: text });
                     showTyping();
 
@@ -1282,7 +1331,7 @@
                 }
             } catch (err) {
                 removeTyping();
-                addBotMessage("Xin lỗi, đã xảy ra lỗi kết nối. Vui lòng thử lại.\n(`" + err.message + "`)");
+                addBotMessage(err.message || "Input không hợp lệ. Vui lòng kiểm tra lại.");
             } finally {
                 sendBtn.disabled = false;
                 input.focus();

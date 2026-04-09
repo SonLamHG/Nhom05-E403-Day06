@@ -1,5 +1,6 @@
 import base64
 import json
+import math
 import os
 from collections import OrderedDict
 from pathlib import Path
@@ -10,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from openai import OpenAI, OpenAIError
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .rules import analyze, INDICATORS
 
@@ -54,9 +55,36 @@ _llm_cache: OrderedDict[str, str] = OrderedDict()
 # --- Models ---
 
 class AnalyzeRequest(BaseModel):
-    indicators: dict[str, float]
-    age: int | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    indicators: dict[str, float] = Field(min_length=1)
+    age: int | None = Field(default=None, ge=0, le=120)
     smoking: bool = False
+
+    @field_validator("indicators")
+    @classmethod
+    def validate_indicators(cls, value: dict[str, float]) -> dict[str, float]:
+        errors: list[str] = []
+
+        for key, indicator_value in value.items():
+            normalized_key = key.strip() if isinstance(key, str) else ""
+            if not normalized_key:
+                errors.append("Tên chỉ số không được để trống")
+                continue
+
+            if not math.isfinite(indicator_value):
+                errors.append(f"{normalized_key}: giá trị phải là số hữu hạn")
+                continue
+
+            if indicator_value < 0 or indicator_value > 10000:
+                errors.append(
+                    f"{normalized_key}: giá trị {indicator_value} nằm ngoài khoảng cho phép [0, 10000]"
+                )
+
+        if errors:
+            raise ValueError("; ".join(errors))
+
+        return value
 
 
 class ChatMessage(BaseModel):
